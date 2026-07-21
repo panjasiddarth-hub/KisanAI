@@ -21,7 +21,11 @@ import Irrigation from './pages/Irrigation';
 import Market from './pages/Market';
 import Schemes from './pages/Schemes';
 import Analytics from './pages/Analytics';
+import CropSuggester from './pages/CropSuggester';
+import FertilizerAgent from './pages/FertilizerAgent';
+import Calendar from './pages/Calendar';
 import AIAssistant from './pages/AIAssistant';
+import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
 
 export default function App() {
@@ -55,6 +59,10 @@ export default function App() {
               <Route path="schemes" element={<Schemes />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="ai-assistant" element={<AIAssistant />} />
+              <Route path="agents/crop" element={<CropSuggester />} />
+              <Route path="agents/fertilizer" element={<FertilizerAgent />} />
+              <Route path="calendar" element={<Calendar />} />
+              <Route path="notifications" element={<Notifications />} />
               <Route path="profile" element={<Profile />} />
             </Route>
 

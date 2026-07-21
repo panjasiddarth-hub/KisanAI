@@ -1,12 +1,12 @@
 // src/components/layout/Topbar.jsx
-// Sticky topbar with search, notifications, dark mode toggle
+// Sticky topbar — search (Ctrl+K), theme, language, notifications, Ask AI button
 
 import { useState, useRef, useEffect } from 'react';
-import { Menu, Search, Bell, Sun, Moon, X, CheckCheck } from 'lucide-react';
+import { Menu, Search, Bell, Sun, Moon, X, CheckCheck, Globe, Sparkles } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../hooks/useNotifications';
-import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const TYPE_COLORS = {
   alert: 'text-red-500',
@@ -18,11 +18,11 @@ const TYPE_COLORS = {
 export default function Topbar({ onMenuClick, title }) {
   const { dark, toggle } = useTheme();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
   const [search, setSearch] = useState('');
   const notifRef = useRef(null);
+  const searchRef = useRef(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -35,8 +35,22 @@ export default function Topbar({ onMenuClick, title }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Ctrl/Cmd + K focuses search
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const iconBtn = 'relative p-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:shadow-md transition-all';
+
   return (
-    <header className="topbar">
+    <header className="topbar" style={{ borderBottom: 'none' }}>
       {/* Hamburger */}
       <button
         onClick={onMenuClick}
@@ -46,58 +60,65 @@ export default function Topbar({ onMenuClick, title }) {
         <Menu className="w-5 h-5 text-[var(--color-text-muted)]" />
       </button>
 
-      {/* Page title */}
-      <h1 className="font-bold text-lg text-[var(--color-text)] hidden sm:block">{title}</h1>
+      {/* Page title (mobile only) */}
+      <h1 className="font-bold text-base text-[var(--color-text)] md:hidden">{title}</h1>
+
+      {/* Search */}
+      <div className="relative hidden md:flex items-center w-full max-w-md">
+        <Search className="absolute left-3.5 w-4 h-4 text-[var(--color-text-muted)]" />
+        <input
+          ref={searchRef}
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && search.trim()) toast(`Searching for “${search.trim()}”`, { icon: '🔍' }); }}
+          placeholder="Search anything..."
+          className="input pl-10 pr-20 py-2.5 text-sm rounded-2xl border-[var(--color-border)] shadow-sm"
+        />
+        {search
+          ? <button onClick={() => setSearch('')} className="absolute right-3"><X className="w-3.5 h-3.5 text-[var(--color-text-muted)]" /></button>
+          : <span className="kbd absolute right-3">Ctrl + K</span>
+        }
+      </div>
 
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Search */}
-      <div className="relative hidden md:flex items-center">
-        <Search className="absolute left-3 w-4 h-4 text-[var(--color-text-muted)]" />
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search crops, farms, schemes..."
-          className="input pl-9 pr-4 py-2 text-sm w-64 h-9"
-        />
-        {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3">
-            <X className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
-          </button>
-        )}
-      </div>
-
       {/* Dark mode */}
-      <button
-        onClick={toggle}
-        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-        aria-label="Toggle dark mode"
-      >
+      <button onClick={toggle} className={iconBtn} aria-label="Toggle dark mode" title="Toggle theme">
         {dark
-          ? <Sun className="w-5 h-5 text-amber-400" />
-          : <Moon className="w-5 h-5 text-slate-600" />
+          ? <Sun className="w-[18px] h-[18px] text-amber-400" />
+          : <Moon className="w-[18px] h-[18px] text-slate-500" />
         }
+      </button>
+
+      {/* Language */}
+      <button
+        onClick={() => toast('Language support (English / हिंदी / తెలుగు) coming soon!', { icon: '🌐' })}
+        className={iconBtn}
+        aria-label="Language"
+        title="Language"
+      >
+        <Globe className="w-[18px] h-[18px] text-slate-500 dark:text-slate-300" />
       </button>
 
       {/* Notifications */}
       <div className="relative" ref={notifRef}>
         <button
           onClick={() => setShowNotif(v => !v)}
-          className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+          className={iconBtn}
           aria-label="Notifications"
         >
-          <Bell className="w-5 h-5 text-[var(--color-text-muted)]" />
+          <Bell className="w-[18px] h-[18px] text-slate-500 dark:text-slate-300" />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[0.6rem] font-bold rounded-full flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 w-4.5 h-4.5 min-w-[18px] px-0.5 bg-red-500 text-white text-[0.62rem] font-bold rounded-full flex items-center justify-center ring-2 ring-[var(--color-bg)]">
               {unreadCount}
             </span>
           )}
         </button>
 
         {showNotif && (
-          <div className="absolute right-0 top-12 w-80 card z-50 shadow-2xl overflow-hidden">
+          <div className="absolute right-0 top-14 w-80 card z-50 shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
               <span className="font-semibold text-sm text-[var(--color-text)]">Notifications</span>
               <button onClick={markAllRead} className="flex items-center gap-1 text-xs text-green-600 hover:underline">
@@ -127,12 +148,12 @@ export default function Topbar({ onMenuClick, title }) {
         )}
       </div>
 
-      {/* Avatar */}
+      {/* Ask AI */}
       <button
-        onClick={() => navigate('/profile')}
-        className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center font-bold text-white text-sm shadow hover:shadow-md transition-shadow"
+        onClick={() => navigate('/ai-assistant')}
+        className="hidden sm:flex items-center gap-2 bg-[#15803d] hover:bg-[#166534] text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-green-900/15 transition-colors"
       >
-        {user?.name?.[0]?.toUpperCase() || 'U'}
+        <Sparkles className="w-4 h-4" /> Ask AI Assistant
       </button>
     </header>
   );

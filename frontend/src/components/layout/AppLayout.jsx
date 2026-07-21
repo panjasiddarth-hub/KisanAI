@@ -8,16 +8,20 @@ import Topbar from './Topbar';
 
 const PAGE_TITLES = {
   '/dashboard': 'Dashboard',
-  '/farms': 'My Farms',
-  '/crops': 'Crop Management',
-  '/weather': 'Weather Center',
-  '/disease': 'Disease Detection',
-  '/irrigation': 'Irrigation Control',
+  '/farms': 'My Farm',
+  '/crops': 'Crop Planning',
+  '/weather': 'Weather',
+  '/disease': 'Diseases',
+  '/irrigation': 'Irrigation',
   '/market': 'Market Intelligence',
-  '/schemes': 'Government Schemes',
-  '/analytics': 'Analytics & Reports',
-  '/ai-assistant': 'AI Multi-Agent Assistant',
-  '/profile': 'My Profile',
+  '/schemes': 'Finance & Schemes',
+  '/analytics': 'Analytics',
+  '/ai-assistant': 'AI Assistant',
+  '/agents/crop': 'Crop Suggester',
+  '/agents/fertilizer': 'Fertilizer Agent',
+  '/calendar': 'Farm Calendar',
+  '/notifications': 'Notifications',
+  '/profile': 'Settings & Profile',
 };
 
 export default function AppLayout() {
