@@ -1,0 +1,26 @@
+// src/api/fallback.js — static copies of form metadata, used when the backend is offline
+export const FALLBACK_META = {
+  soilTypes: ['black', 'red', 'alluvial', 'loamy', 'sandy', 'clay', 'laterite'],
+  seasons: ['kharif', 'rabi', 'zaid'],
+  irrigationModes: ['irrigated', 'rainfed'],
+  crops: ['Cotton', 'Soybean', 'Paddy (Rice)', 'Wheat', 'Maize', 'Sugarcane', 'Onion', 'Tomato', 'Chickpea (Chana)', 'Pigeonpea (Tur)', 'Groundnut', 'Mustard', 'Jowar (Sorghum)', 'Bajra (Pearl Millet)', 'Potato', 'Turmeric', 'Sunflower', 'Banana'],
+  diseaseCrops: ['cotton', 'tomato', 'wheat', 'onion', 'paddy', 'soybean', 'sugarcane'],
+  symptoms: [
+    { id: 'yellowing', label: 'Yellowing of leaves' },
+    { id: 'brown_spots', label: 'Brown / black spots' },
+    { id: 'powdery_white', label: 'White powdery coating' },
+    { id: 'wilting', label: 'Wilting / drooping' },
+    { id: 'holes', label: 'Holes in leaves / bolls' },
+    { id: 'curling', label: 'Leaf curling / cupping' },
+    { id: 'rust_pustules', label: 'Rust-coloured pustules' },
+    { id: 'black_rot', label: 'Blackening / rot' },
+    { id: 'stunting', label: 'Stunted growth' },
+    { id: 'mosaic', label: 'Mosaic / mottled pattern' },
+    { id: 'leaf_blight', label: 'Blight (rapid drying)' },
+    { id: 'boll_damage', label: 'Damaged bolls / fruits' },
+    { id: 'water_soaked', label: 'Water-soaked lesions' },
+    { id: 'premature_drop', label: 'Premature dropping' },
+    { id: 'silver_streaks', label: 'Silvery streaks' },
+  ],
+  geminiEnabled: false,
+};

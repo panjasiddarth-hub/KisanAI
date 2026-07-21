@@ -1,238 +1,199 @@
-// src/pages/Disease.jsx
-// AI-powered crop disease detection with image upload
-
-import { useState, useRef } from 'react';
-import PageHeader from '../components/ui/PageHeader';
-import ProgressBar from '../components/ui/ProgressBar';
+// src/pages/Disease.jsx — Disease agent: crop + symptoms (+ optional photo) → diagnosis
+import { useEffect, useState } from 'react';
+import { api, isOfflineError, apiErrorMessage } from '../api/client';
+import { FALLBACK_META } from '../api/fallback';
+import OfflineCard from '../components/ui/OfflineCard';
+import {
+  Stethoscope, Loader2, Sparkles, UploadCloud, X, CheckCircle2,
+  ShieldCheck, FlaskConical, Leaf, ImageIcon
+} from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Upload, Bug, Loader2, X, CheckCircle, AlertTriangle, Leaf, Camera } from 'lucide-react';
 
-const MOCK_DISEASES = [
-  { name: 'Early Blight (Alternaria solani)', confidence: 89, severity: 'Moderate', crop: 'Tomato', treatments: ['Apply Mancozeb 75 WP @ 2g/L every 7 days', 'Remove infected leaves immediately', 'Improve air circulation between plants', 'Avoid overhead watering'], prevention: 'Use disease-resistant varieties and practice crop rotation. Apply copper-based fungicide preventively.' },
-  { name: 'Powdery Mildew', confidence: 76, severity: 'Low', crop: 'Wheat', treatments: ['Apply Sulfur 80 WP @ 3g/L', 'Use Propiconazole 25 EC @ 1mL/L', 'Improve field drainage'], prevention: 'Avoid excessive nitrogen fertilization. Maintain proper plant spacing.' },
-  { name: 'Leaf Blight (Helminthosporium)', confidence: 92, severity: 'High', crop: 'Maize', treatments: ['Apply Carbendazim 50 WP @ 1g/L', 'Spray Trifloxystrobin + Tebuconazole', 'Destroy infected crop debris'], prevention: 'Use certified disease-free seeds. Apply seed treatment before sowing.' },
-];
-
-const HISTORY = [
-  { id: 1, date: '2026-07-15', crop: 'Tomato', disease: 'Early Blight', confidence: 89, severity: 'Moderate', status: 'treated' },
-  { id: 2, date: '2026-07-10', crop: 'Wheat', disease: 'Rust', confidence: 72, severity: 'Low', status: 'monitoring' },
-  { id: 3, date: '2026-07-05', crop: 'Onion', disease: 'Thrips', confidence: 95, severity: 'High', status: 'treated' },
-];
+const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+const confColor = (c) => (c >= 70 ? 'text-red-500' : c >= 40 ? 'text-amber-500' : 'text-slate-400');
+const confBar = (c) => (c >= 70 ? 'from-red-500 to-orange-500' : c >= 40 ? 'from-amber-400 to-yellow-500' : 'from-slate-400 to-slate-500');
 
 export default function Disease() {
-  const [dragOver, setDragOver] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [meta, setMeta] = useState(FALLBACK_META);
+  const [crop, setCrop] = useState('cotton');
+  const [selected, setSelected] = useState([]);
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [result, setResult] = useState(null);
-  const fileRef = useRef(null);
 
-  const handleFile = (file) => {
-    if (!file || !file.type.startsWith('image/')) {
-      toast.error('Please upload a valid image file.');
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setSelectedImage(url);
-    setResult(null);
+  useEffect(() => {
+    api.get('/agents/meta').then(r => setMeta(r.data)).catch(() => {});
+  }, []);
+
+  const toggleSymptom = (id) =>
+    setSelected(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+
+  const onFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { toast.error('Image must be under 5 MB'); return; }
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
   };
 
-  const handleDrop = (e) => {
+  const clearFile = () => { setFile(null); setPreview(null); };
+
+  const submit = async (e) => {
     e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    handleFile(file);
+    if (selected.length === 0) { toast.error('Select at least one symptom'); return; }
+    setBusy(true); setOffline(false);
+    try {
+      const fd = new FormData();
+      fd.append('crop', crop);
+      fd.append('symptoms', JSON.stringify(selected));
+      if (file) fd.append('image', file);
+      const { data } = await api.post('/agents/disease', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setResult(data);
+    } catch (err) {
+      if (isOfflineError(err)) { setOffline(true); setResult(null); }
+      else toast.error(apiErrorMessage(err));
+    } finally { setBusy(false); }
   };
-
-  const handleAnalyze = async () => {
-    if (!selectedImage) return;
-    setAnalyzing(true);
-    await new Promise(r => setTimeout(r, 2500));
-    const mock = MOCK_DISEASES[Math.floor(Math.random() * MOCK_DISEASES.length)];
-    setResult(mock);
-    setAnalyzing(false);
-    toast.success('Analysis complete!');
-  };
-
-  const severityColor = (s) => ({ Low: 'badge-green', Moderate: 'badge-yellow', High: 'badge-red' }[s] || 'badge-blue');
 
   return (
-    <div className="page-content">
-      <PageHeader title="AI Disease Detection" subtitle="Upload a crop photo for instant AI-powered diagnosis" />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-        {/* Upload section */}
-        <div className="space-y-4">
-          {/* Drop zone */}
-          <div
-            className={`relative card p-8 text-center cursor-pointer transition-all border-2 border-dashed ${dragOver ? 'border-green-500 bg-green-50 dark:bg-green-950/20 scale-[1.01]' : 'border-[var(--color-border)] hover:border-green-400'}`}
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => fileRef.current?.click()}
-          >
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => handleFile(e.target.files[0])} />
-
-            {selectedImage
-              ? <div className="relative">
-                <img src={selectedImage} alt="Crop" className="w-full max-h-56 object-contain rounded-xl mx-auto" />
-                <button
-                  onClick={e => { e.stopPropagation(); setSelectedImage(null); setResult(null); }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              : <div className="space-y-3">
-                <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-green-950/30 flex items-center justify-center mx-auto">
-                  <Camera className="w-8 h-8 text-green-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm text-[var(--color-text)]">Drop crop image here</p>
-                  <p className="text-xs text-[var(--color-text-muted)] mt-1">or click to browse · JPG, PNG, WebP · Max 10MB</p>
-                </div>
-                <p className="text-xs text-green-600 font-medium">📸 Take a clear photo of affected leaves/plants</p>
-              </div>
-            }
-          </div>
-
-          {selectedImage && (
-            <button
-              onClick={handleAnalyze}
-              disabled={analyzing}
-              className="btn-primary w-full flex items-center justify-center gap-2 h-11"
-            >
-              {analyzing
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing with AI...</>
-                : <><Bug className="w-4 h-4" /> Detect Disease</>
-              }
-            </button>
-          )}
-
-          {/* Tips */}
-          <div className="card p-4">
-            <h4 className="font-bold text-xs text-[var(--color-text)] mb-3">📋 For Best Results</h4>
-            <ul className="space-y-1.5">
-              {['Capture affected leaves/stem/fruit clearly', 'Use natural daylight — avoid shadows', 'Include both healthy and diseased parts', 'Keep camera steady, avoid blur'].map(t => (
-                <li key={t} className="flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
-                  <CheckCircle className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
-                  {t}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Results */}
-        <div>
-          {analyzing && (
-            <div className="card p-8 text-center fade-in">
-              <div className="w-16 h-16 rounded-2xl bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
-              </div>
-              <p className="font-bold text-sm text-[var(--color-text)] mb-2">AI is analyzing your crop...</p>
-              <div className="space-y-2 text-xs text-[var(--color-text-muted)]">
-                <p>🔍 Detecting visual patterns</p>
-                <p>🧬 Matching disease signatures</p>
-                <p>💊 Generating treatment plan</p>
-              </div>
-            </div>
-          )}
-
-          {result && !analyzing && (
-            <div className="space-y-4 fade-in">
-              {/* Diagnosis card */}
-              <div className="card p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <AlertTriangle className="w-5 h-5 text-amber-500" />
-                      <h3 className="font-bold text-base text-[var(--color-text)]">{result.name}</h3>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className={`badge ${severityColor(result.severity)}`}>Severity: {result.severity}</span>
-                      <span className="badge badge-blue">{result.crop}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <ProgressBar value={result.confidence} label="AI Confidence" color={result.confidence >= 80 ? 'green' : 'yellow'} />
-                </div>
-
-                {/* Treatments */}
-                <div className="mb-4">
-                  <h4 className="font-bold text-xs text-[var(--color-text)] mb-2">💊 Recommended Treatments</h4>
-                  <ul className="space-y-2">
-                    {result.treatments.map((t, i) => (
-                      <li key={i} className="flex items-start gap-2 p-2.5 rounded-xl bg-green-50 dark:bg-green-950/20">
-                        <span className="w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
-                        <span className="text-xs text-[var(--color-text)] leading-relaxed">{t}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Prevention */}
-                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Leaf className="w-4 h-4 text-blue-500" />
-                    <span className="font-bold text-xs text-blue-700 dark:text-blue-400">Prevention</span>
-                  </div>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{result.prevention}</p>
-                </div>
-
-                <button
-                  onClick={() => { setSelectedImage(null); setResult(null); }}
-                  className="btn-secondary w-full mt-4 text-sm"
-                >
-                  Analyze Another Image
-                </button>
-              </div>
-            </div>
-          )}
-
-          {!result && !analyzing && (
-            <div className="card p-8 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
-                <Bug className="w-8 h-8 text-gray-400" />
-              </div>
-              <p className="font-semibold text-sm text-[var(--color-text)]">Upload an image to analyze</p>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">Our AI can detect 50+ crop diseases with high accuracy</p>
-            </div>
-          )}
-        </div>
+    <div className="page-content" style={{ maxWidth: '1100px' }}>
+      <div className="mb-5">
+        <h2 className="text-xl font-extrabold text-[var(--color-text)] flex items-center gap-2">
+          <span className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-950/50 flex items-center justify-center"><Stethoscope className="w-5 h-5 text-red-500" /></span>
+          Disease Agent
+        </h2>
+        <p className="text-sm text-[var(--color-text-muted)] mt-1">Tell the agent what you see on the crop — it matches symptoms against known disease signatures.</p>
       </div>
 
-      {/* Detection History */}
-      <div className="card p-5">
-        <h3 className="font-bold text-sm text-[var(--color-text)] mb-4">Detection History</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-left text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
-                <th className="pb-2 font-semibold">Date</th>
-                <th className="pb-2 font-semibold">Crop</th>
-                <th className="pb-2 font-semibold">Disease</th>
-                <th className="pb-2 font-semibold">Confidence</th>
-                <th className="pb-2 font-semibold">Severity</th>
-                <th className="pb-2 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-border)]">
-              {HISTORY.map(h => (
-                <tr key={h.id} className="text-[var(--color-text)]">
-                  <td className="py-2.5">{h.date}</td>
-                  <td className="py-2.5 font-medium">{h.crop}</td>
-                  <td className="py-2.5">{h.disease}</td>
-                  <td className="py-2.5">
-                    <span className={`badge ${h.confidence >= 80 ? 'badge-green' : 'badge-yellow'}`}>{h.confidence}%</span>
-                  </td>
-                  <td className="py-2.5"><span className={`badge ${severityColor(h.severity)}`}>{h.severity}</span></td>
-                  <td className="py-2.5"><span className={`badge ${h.status === 'treated' ? 'badge-green' : 'badge-yellow'}`}>{h.status}</span></td>
-                </tr>
+      <div className="grid grid-cols-1 lg:grid-cols-[400px_minmax(0,1fr)] gap-5 items-start">
+        {/* Input */}
+        <form onSubmit={submit} className="card p-5 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-[var(--color-text)] block mb-1.5">Crop</label>
+            <div className="grid grid-cols-3 gap-2">
+              {meta.diseaseCrops.map(c => (
+                <button type="button" key={c} onClick={() => { setCrop(c); setResult(null); }}
+                  className={`py-2 rounded-xl text-xs font-bold border transition-colors ${crop === c ? 'bg-[#15803d] text-white border-[#15803d]' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-green-400'}`}>
+                  {c === 'paddy' ? 'Paddy (Rice)' : cap(c)}
+                </button>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-[var(--color-text)] block mb-1.5">
+              Symptoms observed <span className="text-green-600">({selected.length} selected)</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+              {meta.symptoms.map(s => (
+                <button type="button" key={s.id} onClick={() => toggleSymptom(s.id)}
+                  className={`text-[0.68rem] font-semibold px-2.5 py-1.5 rounded-full border transition-colors ${selected.includes(s.id) ? 'bg-red-500 text-white border-red-500' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-red-300'}`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-[var(--color-text)] block mb-1.5">Leaf photo <span className="text-[var(--color-text-muted)] font-normal">(optional — beta visual triage)</span></label>
+            {preview ? (
+              <div className="relative inline-block">
+                <img src={preview} alt="Leaf sample" className="w-28 h-28 object-cover rounded-xl border border-[var(--color-border)]" />
+                <button type="button" onClick={clearFile} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-[var(--color-border)] rounded-xl py-5 cursor-pointer hover:border-green-400 transition-colors">
+                <UploadCloud className="w-6 h-6 text-[var(--color-text-muted)]" />
+                <span className="text-[0.7rem] text-[var(--color-text-muted)]">Click to upload JPG/PNG (max 5 MB)</span>
+                <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+              </label>
+            )}
+          </div>
+
+          <button type="submit" disabled={busy} className="w-full flex items-center justify-center gap-2 bg-[#15803d] hover:bg-[#166534] disabled:opacity-60 text-white font-bold text-sm py-3 rounded-xl transition-colors">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {busy ? 'Diagnosing…' : 'Diagnose'}
+          </button>
+        </form>
+
+        {/* Results */}
+        <div className="space-y-4">
+          {offline && <OfflineCard onRetry={submit} />}
+          {!offline && !result && (
+            <div className="card p-8 text-center text-sm text-[var(--color-text-muted)]">
+              <Stethoscope className="w-10 h-10 mx-auto mb-3 text-red-300" />
+              Pick the crop, tick the symptoms you see, optionally attach a photo, then press <b>Diagnose</b>.
+            </div>
+          )}
+          {result && (
+            <>
+              <div className="rounded-2xl border border-green-200/70 bg-[#e9f7ee] dark:bg-green-950/15 dark:border-green-900/30 p-4 flex gap-3">
+                <span className="w-8 h-8 rounded-full bg-[#15803d] flex items-center justify-center shrink-0"><Sparkles className="w-4 h-4 text-white" /></span>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-sm text-[var(--color-text)]">Agent's Reading</h4>
+                    <span className={`badge ${result.explanationSource === 'gemini' ? 'badge-purple' : 'badge-blue'}`}>
+                      {result.explanationSource === 'gemini' ? '✨ Gemini AI' : 'Rule Engine'}
+                    </span>
+                  </div>
+                  <p className="text-[0.82rem] text-[var(--color-text)] leading-relaxed mt-1.5">{result.explanation}</p>
+                  {result.photoAnalysis && (
+                    <p className="text-[0.72rem] text-indigo-600 dark:text-indigo-400 mt-2 flex gap-1.5"><ImageIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {result.photoAnalysis}</p>
+                  )}
+                </div>
+              </div>
+
+              {result.diagnosis.map((d, i) => (
+                <div key={d.name} className={`card p-5 fade-in ${i === 0 ? 'ring-2 ring-red-400/40' : ''}`}>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <h4 className="font-bold text-sm text-[var(--color-text)]">{i === 0 && <span className="text-red-500 mr-1">●</span>}{d.name}</h4>
+                      <p className="text-[0.7rem] text-[var(--color-text-muted)] mt-0.5">{d.pathogen}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-2xl font-extrabold ${confColor(d.confidence)}`}>{d.confidence}%</p>
+                      <p className="text-[0.62rem] text-[var(--color-text-muted)]">confidence</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-gray-100 dark:bg-slate-700 overflow-hidden">
+                    <div className={`h-full rounded-full bg-gradient-to-r ${confBar(d.confidence)}`} style={{ width: `${d.confidence}%` }} />
+                  </div>
+
+                  {d.matchedSymptoms.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {d.matchedSymptoms.map(s => (
+                        <span key={s} className="inline-flex items-center gap-1 text-[0.66rem] font-medium px-2 py-1 rounded-lg bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"><CheckCircle2 className="w-3 h-3" /> {s}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {i === 0 && (
+                    <>
+                      <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                        <div className="rounded-xl bg-blue-50 dark:bg-blue-950/20 p-3">
+                          <p className="flex items-center gap-1.5 text-[0.72rem] font-bold text-blue-700 dark:text-blue-400 mb-1"><FlaskConical className="w-3.5 h-3.5" /> Chemical control</p>
+                          <p className="text-[0.74rem] text-[var(--color-text)] leading-relaxed">{d.treatment.chemical}</p>
+                        </div>
+                        <div className="rounded-xl bg-green-50 dark:bg-green-950/20 p-3">
+                          <p className="flex items-center gap-1.5 text-[0.72rem] font-bold text-green-700 dark:text-green-400 mb-1"><Leaf className="w-3.5 h-3.5" /> Organic / IPM</p>
+                          <p className="text-[0.74rem] text-[var(--color-text)] leading-relaxed">{d.treatment.organic}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <p className="flex items-center gap-1.5 text-[0.72rem] font-bold text-[var(--color-text)] mb-1.5"><ShieldCheck className="w-3.5 h-3.5 text-green-600" /> Prevention for next season</p>
+                        <ul className="space-y-1">
+                          {d.prevention.map((p, j) => <li key={j} className="text-[0.74rem] text-[var(--color-text-muted)] flex gap-2"><span className="text-green-600 font-bold">•</span>{p}</li>)}
+                        </ul>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+              <p className="text-[0.68rem] text-[var(--color-text-muted)] text-center italic">{result.disclaimer}</p>
+            </>
+          )}
         </div>
       </div>
     </div>

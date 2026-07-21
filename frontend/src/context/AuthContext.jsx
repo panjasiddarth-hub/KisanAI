@@ -1,92 +1,85 @@
 // src/context/AuthContext.jsx
-// Provides authentication state and helpers via React Context API
+// Authentication via the KisanAI backend API, with an offline demo fallback
+// so the UI still demos when the server isn't running (e.g. static preview).
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { api, isOfflineError, apiErrorMessage } from '../api/client';
 
 const AuthContext = createContext(null);
 
-// Mock user data for frontend demo
-const MOCK_USERS = [
-  { id: '1', name: 'Ramesh Kumar', email: 'ramesh@kisan.com', password: 'password123', role: 'farmer', avatar: null, phone: '+91 98765 43210', location: 'Pune, Maharashtra' },
-];
+// Offline demo account (mirrors the backend's seeded user)
+const DEMO_USER = { email: 'siddarth@kisan.com', password: 'password123', profile: { id: 'demo-1', name: 'Siddarth R.', email: 'siddarth@kisan.com', role: 'farmer', avatar: null, phone: '+91 98491 23456', location: 'Warangal, Telangana' } };
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Hydrate from localStorage on mount
-  useEffect(() => {
+  const persist = (u, t) => {
+    setUser(u); setToken(t);
     try {
-      const savedUser = localStorage.getItem('kisan_user');
-      const savedToken = localStorage.getItem('kisan_token');
-      if (savedUser && savedToken) {
-        setUser(JSON.parse(savedUser));
-        setToken(savedToken);
+      if (u && t) { localStorage.setItem('kisan_user', JSON.stringify(u)); localStorage.setItem('kisan_token', t); }
+      else { localStorage.removeItem('kisan_user'); localStorage.removeItem('kisan_token'); }
+    } catch { /* sandboxed preview */ }
+  };
+
+  // Hydrate from localStorage, then quietly re-validate with the API when it's up
+  useEffect(() => {
+    let savedUser = null, savedToken = null;
+    try { savedUser = localStorage.getItem('kisan_user'); savedToken = localStorage.getItem('kisan_token'); } catch { /* sandbox */ }
+    if (savedUser && savedToken) {
+      try { setUser(JSON.parse(savedUser)); } catch { /* corrupt */ }
+      setToken(savedToken);
+      api.get('/auth/me')
+        .then(r => { setUser(r.data.user); try { localStorage.setItem('kisan_user', JSON.stringify(r.data.user)); } catch {} })
+        .catch(err => { if (err?.response?.status === 401) persist(null, null); /* stale token on fresh backend */ });
+    }
+    setLoading(false);
+  }, []);
+
+  const login = useCallback(async (email, password) => {
+    setLoading(true);
+    try {
+      const { data } = await api.post('/auth/login', { email, password });
+      persist(data.user, data.token);
+      return { success: true };
+    } catch (err) {
+      if (isOfflineError(err)) {
+        // Offline fallback — demo account only
+        if (email === DEMO_USER.email && password === DEMO_USER.password) {
+          persist(DEMO_USER.profile, btoa(`demo:${Date.now()}`));
+          return { success: true, offline: true };
+        }
+        return { success: false, error: 'Backend is offline. Start it with "cd backend && npm start", or use the demo login (siddarth@kisan.com / password123).' };
       }
-    } catch {
-      // ignore corrupt data
+      return { success: false, error: apiErrorMessage(err, 'Login failed') };
     } finally {
       setLoading(false);
     }
   }, []);
 
-  /**
-   * Login with email + password.
-   * Returns { success, error }
-   */
-  const login = useCallback(async (email, password) => {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 800)); // simulate network delay
-    const found = MOCK_USERS.find(u => u.email === email && u.password === password);
-    if (!found) {
-      setLoading(false);
-      return { success: false, error: 'Invalid email or password.' };
-    }
-    const { password: _, ...safeUser } = found;
-    const fakeToken = btoa(`${safeUser.id}:${Date.now()}`);
-    setUser(safeUser);
-    setToken(fakeToken);
-    localStorage.setItem('kisan_user', JSON.stringify(safeUser));
-    localStorage.setItem('kisan_token', fakeToken);
-    setLoading(false);
-    return { success: true };
-  }, []);
-
-  /**
-   * Register new user (mock).
-   */
   const register = useCallback(async (name, email, password) => {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    const exists = MOCK_USERS.find(u => u.email === email);
-    if (exists) {
+    try {
+      const { data } = await api.post('/auth/register', { name, email, password });
+      persist(data.user, data.token);
+      return { success: true };
+    } catch (err) {
+      if (isOfflineError(err)) {
+        return { success: false, error: 'Backend is offline — registration needs the API running (cd backend && npm start).' };
+      }
+      return { success: false, error: apiErrorMessage(err, 'Registration failed') };
+    } finally {
       setLoading(false);
-      return { success: false, error: 'Email already registered.' };
     }
-    const newUser = { id: String(Date.now()), name, email, role: 'farmer', avatar: null, phone: '', location: '' };
-    const fakeToken = btoa(`${newUser.id}:${Date.now()}`);
-    setUser(newUser);
-    setToken(fakeToken);
-    localStorage.setItem('kisan_user', JSON.stringify(newUser));
-    localStorage.setItem('kisan_token', fakeToken);
-    setLoading(false);
-    return { success: true };
   }, []);
 
-  /** Logout */
-  const logout = useCallback(() => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('kisan_user');
-    localStorage.removeItem('kisan_token');
-  }, []);
+  const logout = useCallback(() => persist(null, null), []);
 
-  /** Update profile */
   const updateProfile = useCallback((updates) => {
     setUser(prev => {
       const updated = { ...prev, ...updates };
-      localStorage.setItem('kisan_user', JSON.stringify(updated));
+      try { localStorage.setItem('kisan_user', JSON.stringify(updated)); } catch {}
       return updated;
     });
   }, []);

@@ -95,7 +95,7 @@ export default function Login() {
           {/* Demo credentials hint */}
           <div className="mb-6 p-4 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
             <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">🌾 Demo Credentials</p>
-            <p className="text-xs text-green-600 dark:text-green-500">Farmer demo: ramesh@kisan.com / password123</p>
+            <p className="text-xs text-green-600 dark:text-green-500">Farmer demo: siddarth@kisan.com / password123</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -104,7 +104,7 @@ export default function Login() {
               <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Email Address</label>
               <input
                 type="email"
-                placeholder="ramesh@kisan.com"
+                placeholder="siddarth@kisan.com"
                 className="input"
                 {...register('email', { required: 'Email is required', pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' } })}
               />
