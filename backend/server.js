@@ -8,6 +8,10 @@ import { seedDemoUser } from './src/repositories/store.js';
 import authRoutes from './src/routes/auth.routes.js';
 import agentRoutes from './src/routes/agents.routes.js';
 import calendarRoutes from './src/routes/calendar.routes.js';
+import farmsRoutes from './src/routes/farms.routes.js';
+import cropsRoutes from './src/routes/crops.routes.js';
+import weatherRoutes from './src/routes/weather.routes.js';
+import marketRoutes from './src/routes/market.routes.js';
 
 const app = express();
 app.use(cors());
@@ -24,6 +28,10 @@ app.get('/api/health', (_req, res) =>
 app.use('/api/auth', authRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/farms', farmsRoutes);
+app.use('/api/crops', cropsRoutes);
+app.use('/api/weather', weatherRoutes);
+app.use('/api/market', marketRoutes);
 
 // 404 + error handler
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
