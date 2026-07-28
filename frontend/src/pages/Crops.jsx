@@ -167,26 +167,30 @@ export default function Crops() {
 
   const handleAdd = async (data) => {
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 600));
-    addCrop(data);
-    toast.success('Crop added! 🌱');
-    setShowAdd(false);
+    try {
+      await addCrop(data);
+      toast.success('Crop added! 🌱');
+      setShowAdd(false);
+    } catch (e) {}
     setSubmitting(false);
   };
 
   const handleEdit = async (data) => {
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 500));
-    updateCrop(editCrop.id, data);
-    toast.success('Crop updated!');
-    setEditCrop(null);
+    try {
+      await updateCrop(editCrop.id, data);
+      toast.success('Crop updated!');
+      setEditCrop(null);
+    } catch (e) {}
     setSubmitting(false);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Remove this crop?')) {
-      deleteCrop(id);
-      toast.success('Crop removed.');
+      try {
+        await deleteCrop(id);
+        toast.success('Crop removed.');
+      } catch (e) {}
     }
   };
 

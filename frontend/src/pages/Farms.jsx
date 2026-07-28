@@ -135,26 +135,34 @@ export default function Farms() {
 
   const handleAdd = async (data) => {
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 600));
-    addFarm(data);
-    toast.success('Farm added successfully! 🏡');
-    setShowAdd(false);
+    try {
+      await addFarm(data);
+      toast.success('Farm added successfully! 🏡');
+      setShowAdd(false);
+    } catch (e) {
+      // toast already shown in hook
+    }
     setSubmitting(false);
   };
 
   const handleEdit = async (data) => {
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 500));
-    updateFarm(editFarm.id, data);
-    toast.success('Farm updated!');
-    setEditFarm(null);
+    try {
+      await updateFarm(editFarm.id, data);
+      toast.success('Farm updated!');
+      setEditFarm(null);
+    } catch (e) {
+      // error handled in hook
+    }
     setSubmitting(false);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Delete this farm? This cannot be undone.')) {
-      deleteFarm(id);
-      toast.success('Farm deleted.');
+      try {
+        await deleteFarm(id);
+        toast.success('Farm deleted.');
+      } catch (e) {}
     }
   };
 

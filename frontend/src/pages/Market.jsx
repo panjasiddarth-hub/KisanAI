@@ -1,30 +1,13 @@
-// src/pages/Market.jsx
-// Market intelligence with crop prices, trends, and nearby markets
-
 import { useState, useEffect } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import StatCard from '../components/ui/StatCard';
 import { TrendingUp, TrendingDown, MapPin, ArrowUpRight } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { api } from '../api/client';
+import toast from 'react-hot-toast';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
-
-const CROP_PRICES = [
-  { crop: 'Wheat', price: 2350, msp: 2275, unit: '₹/quintal', change: +3.2, market: 'Nashik APMC', quality: 'A Grade' },
-  { crop: 'Onion', price: 1850, msp: 1200, unit: '₹/quintal', change: +12.5, market: 'Lasalgaon APMC', quality: 'Medium' },
-  { crop: 'Tomato', price: 2100, msp: null, unit: '₹/quintal', change: -8.3, market: 'Pune APMC', quality: 'Fresh' },
-  { crop: 'Sugarcane', price: 3200, msp: 3150, unit: '₹/tonne', change: +1.6, market: 'Ahmednagar', quality: 'Standard' },
-  { crop: 'Soybean', price: 4800, msp: 4600, unit: '₹/quintal', change: +5.4, market: 'Akola APMC', quality: 'A Grade' },
-  { crop: 'Cotton', price: 7200, msp: 6950, unit: '₹/quintal', change: -2.1, market: 'Nagpur APMC', quality: 'Medium Staple' },
-];
-
-const NEARBY_MARKETS = [
-  { name: 'Nashik APMC', distance: '12 km', rating: 4.5, speciality: 'Grapes, Onion, Tomato', timing: '6 AM – 2 PM', days: 'Mon–Sat' },
-  { name: 'Lasalgaon APMC', distance: '28 km', rating: 4.8, speciality: "Asia's largest onion market", timing: '5 AM – 12 PM', days: 'All days' },
-  { name: 'Pune APMC (Gultekdi)', distance: '75 km', rating: 4.3, speciality: 'Vegetables, Fruits, Grains', timing: '4 AM – 10 AM', days: 'All days' },
-  { name: 'Ahmednagar APMC', distance: '95 km', rating: 4.1, speciality: 'Sugarcane, Soybean', timing: '7 AM – 3 PM', days: 'Mon–Fri' },
-];
 
 const generatePriceHistory = (base) => ({
   labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
@@ -44,13 +27,32 @@ const generatePriceHistory = (base) => ({
 export default function Market() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState('Onion');
+  const [marketData, setMarketData] = useState(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 900);
-    return () => clearTimeout(t);
+    let mounted = true;
+    const fetchMarket = async () => {
+      try {
+        const { data } = await api.get('/market');
+        if (mounted) {
+          setMarketData(data);
+          setLoading(false);
+        }
+      } catch (e) {
+        if (mounted) {
+          toast.error('Failed to fetch live market prices');
+          setLoading(false);
+        }
+      }
+    };
+    fetchMarket();
+    return () => { mounted = false; };
   }, []);
 
-  const selectedCrop = CROP_PRICES.find(c => c.crop === selected);
+  const CROP_PRICES = marketData?.prices || [];
+  const NEARBY_MARKETS = marketData?.nearbyMarkets || [];
+  const selectedCrop = CROP_PRICES.find(c => c.crop === selected) || CROP_PRICES[0];
+
   const chartOpts = {
     responsive: true, maintainAspectRatio: false,
     plugins: { legend: { display: false } },
@@ -66,9 +68,9 @@ export default function Market() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-        <StatCard loading={loading} title="Onion Price" value="₹1,850" unit="/q" icon={TrendingUp} iconBg="bg-green-100 dark:bg-green-900/30" iconColor="text-green-500" trend="up" trendValue={12.5} subtitle="Above MSP" />
-        <StatCard loading={loading} title="Wheat Price" value="₹2,350" unit="/q" icon={TrendingUp} iconBg="bg-amber-100 dark:bg-amber-900/30" iconColor="text-amber-500" trend="up" trendValue={3.2} subtitle="₹75 above MSP" />
-        <StatCard loading={loading} title="Tomato Price" value="₹2,100" unit="/q" icon={TrendingDown} iconBg="bg-red-100 dark:bg-red-900/30" iconColor="text-red-500" trend="down" trendValue={8.3} subtitle="Falling trend" />
+        <StatCard loading={loading} title="Onion Price" value={CROP_PRICES.find(c=>c.crop==='Onion')?.price ? `₹${CROP_PRICES.find(c=>c.crop==='Onion').price}` : '-'} unit="/q" icon={TrendingUp} iconBg="bg-green-100 dark:bg-green-900/30" iconColor="text-green-500" trend={CROP_PRICES.find(c=>c.crop==='Onion')?.change > 0 ? 'up' : 'down'} trendValue={Math.abs(CROP_PRICES.find(c=>c.crop==='Onion')?.change || 0)} subtitle="Above MSP" />
+        <StatCard loading={loading} title="Wheat Price" value={CROP_PRICES.find(c=>c.crop==='Wheat')?.price ? `₹${CROP_PRICES.find(c=>c.crop==='Wheat').price}` : '-'} unit="/q" icon={TrendingUp} iconBg="bg-amber-100 dark:bg-amber-900/30" iconColor="text-amber-500" trend={CROP_PRICES.find(c=>c.crop==='Wheat')?.change > 0 ? 'up' : 'down'} trendValue={Math.abs(CROP_PRICES.find(c=>c.crop==='Wheat')?.change || 0)} subtitle="Above MSP" />
+        <StatCard loading={loading} title="Tomato Price" value={CROP_PRICES.find(c=>c.crop==='Tomato')?.price ? `₹${CROP_PRICES.find(c=>c.crop==='Tomato').price}` : '-'} unit="/q" icon={TrendingDown} iconBg="bg-red-100 dark:bg-red-900/30" iconColor="text-red-500" trend={CROP_PRICES.find(c=>c.crop==='Tomato')?.change > 0 ? 'up' : 'down'} trendValue={Math.abs(CROP_PRICES.find(c=>c.crop==='Tomato')?.change || 0)} subtitle="Falling trend" />
         <StatCard loading={loading} title="Best Market" value="Lasalgaon" icon={MapPin} iconBg="bg-blue-100 dark:bg-blue-900/30" iconColor="text-blue-500" subtitle="Onion · 28 km away" />
       </div>
 
@@ -88,7 +90,7 @@ export default function Market() {
               {CROP_PRICES.map(c => <option key={c.crop}>{c.crop}</option>)}
             </select>
           </div>
-          {loading ? <div className="skeleton h-52 rounded-xl" /> : <div className="h-52"><Line data={generatePriceHistory(selectedCrop?.price || 2000)} options={chartOpts} /></div>}
+          {loading || !selectedCrop ? <div className="skeleton h-52 rounded-xl" /> : <div className="h-52"><Line data={generatePriceHistory(selectedCrop?.price || 2000)} options={chartOpts} /></div>}
         </div>
 
         {/* Selected crop detail */}
@@ -123,7 +125,7 @@ export default function Market() {
                 </div>
                 <div className={`flex items-center gap-2 p-3 rounded-xl ${selectedCrop.change > 0 ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'}`}>
                   {selectedCrop.change > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                  <span className="text-xs font-semibold">{selectedCrop.change > 0 ? '+' : ''}{selectedCrop.change}% vs last week</span>
+                  <span className="text-xs font-semibold">{selectedCrop.change > 0 ? '+' : ''}{Math.abs(selectedCrop.change)}% vs last week</span>
                 </div>
               </div>
             </>
@@ -134,7 +136,7 @@ export default function Market() {
       {/* All prices table */}
       <div className="card p-5 mb-5">
         <h3 className="font-bold text-sm text-[var(--color-text)] mb-4">Live Crop Prices — Today</h3>
-        {loading ? <div className="skeleton h-40 rounded-xl" /> :
+        {loading || !marketData ? <div className="skeleton h-40 rounded-xl" /> :
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { suggestCrops, templateExplanation } from '../agents/cropAgent.js';
 import { fertilizePlan, fertilizerExplanation } from '../agents/fertilizerAgent.js';
 import { diagnose, diseaseExplanation } from '../agents/diseaseAgent.js';
-import { aiExplain } from '../agents/gemini.js';
+import { aiExplain, aiAnalyzeImage } from '../agents/gemini.js';
 import { SYMPTOMS, DISEASE_DB } from '../data/diseases.js';
 import { SOIL_TYPES, SEASONS, CROPS } from '../data/crops.js';
 
@@ -62,6 +62,16 @@ router.post('/disease', upload.single('image'), async (req, res, next) => {
     const result = diagnose({ crop: req.body?.crop, symptoms, hasPhoto: !!req.file });
     if (result.error) return res.status(400).json({ error: result.error });
     if (req.file) result.photoUrl = `/uploads/${req.file.filename}`;
+    
+    // First, let Gemini actually look at the image!
+    if (req.file && process.env.GEMINI_API_KEY) {
+       const visionAnalysis = await aiAnalyzeImage(req.body?.crop, req.file.path);
+       if (visionAnalysis) {
+         result.photoAnalysis = visionAnalysis;
+         result.visionModelUsed = true;
+       }
+    }
+
     const explanation = (await aiExplain('disease', result)) || diseaseExplanation(result);
     res.json({ ...result, explanation, explanationSource: process.env.GEMINI_API_KEY ? 'gemini' : 'template' });
   } catch (e) { next(e); }
