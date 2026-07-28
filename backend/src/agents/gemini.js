@@ -1,7 +1,50 @@
 // src/agents/gemini.js — optional AI-written explanation layer (hybrid mode).
 // Returns null when GEMINI_API_KEY is not set, so routes fall back to templates.
 
-const TIMEOUT_MS = 9000;
+import fs from 'node:fs';
+
+const TIMEOUT_MS = 15000;
+
+export async function aiAnalyzeImage(crop, imagePath) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+
+  try {
+    const base64Image = fs.readFileSync(imagePath).toString('base64');
+    
+    // Determine mime type loosely
+    let mimeType = 'image/jpeg';
+    if (imagePath.endsWith('.png')) mimeType = 'image/png';
+    else if (imagePath.endsWith('.webp')) mimeType = 'image/webp';
+
+    const system = `You are an expert plant pathologist. I am a farmer growing ${crop}. I have attached an image of a problematic leaf/plant. Analyze the visual symptoms and identify the most likely disease or deficiency. Provide a short 3-4 sentence explanation.`;
+
+    const body = {
+      contents: [{
+        parts: [
+          { text: system },
+          { inlineData: { mimeType, data: base64Image } }
+        ]
+      }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 250 },
+    };
+
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal }
+    );
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+  } catch (e) {
+    console.error('Gemini Vision Error:', e.message);
+    return null; 
+  }
+}
 
 export async function aiExplain(kind, structuredResult) {
   const key = process.env.GEMINI_API_KEY;
