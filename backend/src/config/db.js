@@ -9,11 +9,18 @@ export async function connectDB() {
     return;
   }
   try {
-    await mongoose.connect(uri, { serverSelectionTimeoutMS: 6000 });
+    console.log('🔄 Connecting to MongoDB Atlas...');
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
+    });
     globalThis.__DB_MODE__ = 'mongodb';
-    console.log('✅ Connected to MongoDB');
+    console.log('✅ Connected to MongoDB Atlas');
   } catch (err) {
     globalThis.__DB_MODE__ = 'in-memory';
-    console.warn('⚠️  MongoDB connection failed, falling back to in-memory store:', err.message);
+    console.warn('⚠️  MongoDB connection failed, falling back to in-memory store.');
+    console.warn('   Error:', err.message);
+    console.warn('   Tip: Make sure your IP is whitelisted in MongoDB Atlas → Network Access.');
   }
 }
+
