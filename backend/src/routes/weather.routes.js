@@ -22,7 +22,7 @@ router.get('/', async (req, res, next) => {
     const lon = req.query.lon || 73.78;
     const locationName = req.query.location || 'Nashik, Maharashtra';
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m,surface_pressure&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m,surface_pressure&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`;
     
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch from Open-Meteo');
@@ -59,7 +59,24 @@ router.get('/', async (req, res, next) => {
       };
     });
 
-    res.json({ current, forecast });
+    const hourly = [];
+    const currentTime = new Date().getTime();
+    for (let i = 0; i < data.hourly.time.length; i++) {
+      const time = new Date(data.hourly.time[i]);
+      // Include current hour and future hours
+      if (time.getTime() >= currentTime - 3600000) {
+        const mapped = mapCodeToCondition(data.hourly.weather_code[i]);
+        hourly.push({
+          time: time.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }),
+          temp: Math.round(data.hourly.temperature_2m[i]),
+          icon: mapped.icon,
+          rain: Math.round(data.hourly.precipitation_probability[i] || 0)
+        });
+        if (hourly.length >= 24) break;
+      }
+    }
+
+    res.json({ current, forecast, hourly });
   } catch (e) {
     next(e);
   }

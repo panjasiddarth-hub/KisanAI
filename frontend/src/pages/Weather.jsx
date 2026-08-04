@@ -168,6 +168,28 @@ export default function Weather() {
       </div>
 
       <div className="card p-5 mb-5">
+        <h3 className="font-bold text-sm text-[var(--color-text)] mb-4">24-Hour Forecast</h3>
+        {loading || !weather
+          ? <div className="flex gap-3 overflow-x-auto pb-2">{[...Array(12)].map((_, i) => <div key={`sk-h-${i}`} className="skeleton min-w-[80px] h-28 rounded-xl" />)}</div>
+          : <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+            {weather.hourly.map((hour, i) => {
+              const HourIcon = getIcon(hour.icon);
+              return (
+                <div key={`h-${i}`} className={`flex flex-col items-center justify-center gap-1.5 min-w-[80px] p-3 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${i === 0 ? 'bg-blue-500 text-white border-blue-400' : 'border-[var(--color-border)] hover:border-blue-300'}`}>
+                  <span className={`text-xs font-bold ${i === 0 ? 'text-blue-100' : 'text-[var(--color-text-muted)]'}`}>{i === 0 ? 'Now' : hour.time}</span>
+                  <HourIcon className={`w-7 h-7 my-1 ${i === 0 ? 'text-white' : 'text-blue-400'}`} />
+                  <span className={`text-sm font-bold ${i === 0 ? 'text-white' : 'text-[var(--color-text)]'}`}>{hour.temp}°C</span>
+                  <div className={`flex items-center gap-1 text-[0.65rem] ${hour.rain > 30 ? (i === 0 ? 'text-blue-100' : 'text-blue-500') : (i === 0 ? 'text-blue-200' : 'text-[var(--color-text-muted)]')}`}>
+                    <CloudRain className="w-3 h-3" /> {hour.rain}%
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        }
+      </div>
+
+      <div className="card p-5 mb-5">
         <h3 className="font-bold text-sm text-[var(--color-text)] mb-4">7-Day Forecast</h3>
         {loading || !weather
           ? <div className="flex gap-3 overflow-x-auto pb-2">{[...Array(7)].map((_, i) => <div key={i} className="skeleton min-w-[100px] h-28 rounded-xl" />)}</div>
