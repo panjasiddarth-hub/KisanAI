@@ -36,9 +36,20 @@ export default function Weather() {
 
   useEffect(() => {
     let mounted = true;
-    const fetchWeather = async () => {
+    const fetchWeather = async (lat, lon, location) => {
       try {
-        const { data } = await api.get('/weather');
+        const params = new URLSearchParams();
+        if (lat && lon) {
+          params.append('lat', lat);
+          params.append('lon', lon);
+        }
+        if (location) {
+          params.append('location', location);
+        }
+        
+        const query = params.toString() ? `?${params.toString()}` : '';
+        const { data } = await api.get(`/weather${query}`);
+        
         if (mounted) {
           setWeather(data);
           setLoading(false);
@@ -50,7 +61,23 @@ export default function Weather() {
         }
       }
     };
-    fetchWeather();
+
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (mounted) {
+            fetchWeather(position.coords.latitude, position.coords.longitude, 'Current Location');
+          }
+        },
+        (error) => {
+          console.warn('Geolocation failed, using default', error);
+          if (mounted) fetchWeather();
+        }
+      );
+    } else {
+      fetchWeather();
+    }
+    
     return () => { mounted = false; };
   }, []);
 
