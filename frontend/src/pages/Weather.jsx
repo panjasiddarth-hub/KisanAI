@@ -64,15 +64,34 @@ export default function Weather() {
 
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          let locName = 'Current Location';
+          
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.display_name) {
+                // Get the most precise components from display_name (usually the first 3-4 parts: building, road, neighbourhood, city)
+                const parts = data.display_name.split(',').map(s => s.trim());
+                locName = parts.slice(0, Math.min(4, parts.length)).join(', ');
+              }
+            }
+          } catch (err) {
+            console.warn('Reverse geocoding failed', err);
+          }
+          
           if (mounted) {
-            fetchWeather(position.coords.latitude, position.coords.longitude, 'Current Location');
+            fetchWeather(lat, lon, locName);
           }
         },
         (error) => {
           console.warn('Geolocation failed, using default', error);
           if (mounted) fetchWeather();
-        }
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     } else {
       fetchWeather();
