@@ -12,6 +12,7 @@ import farmsRoutes from './src/routes/farms.routes.js';
 import cropsRoutes from './src/routes/crops.routes.js';
 import weatherRoutes from './src/routes/weather.routes.js';
 import marketRoutes from './src/routes/market.routes.js';
+import orchestratorRouter from './src/routes/orchestrator.routes.js';
 
 const app = express();
 app.use(cors());
@@ -32,6 +33,7 @@ app.use('/api/farms', farmsRoutes);
 app.use('/api/crops', cropsRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/market', marketRoutes);
+app.use('/api/orchestrator', orchestratorRouter);
 
 // 404 + error handler
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
