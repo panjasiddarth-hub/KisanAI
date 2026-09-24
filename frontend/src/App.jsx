@@ -1,6 +1,7 @@
 // src/App.jsx
 // Main app with routing, providers, and toast notifications
 
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
@@ -8,32 +9,33 @@ import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 
-// Pages
-import Landing from './pages/Landing';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Farms from './pages/Farms';
-import Crops from './pages/Crops';
-import Weather from './pages/Weather';
-import Disease from './pages/Disease';
-import Irrigation from './pages/Irrigation';
-import Market from './pages/Market';
-import Schemes from './pages/Schemes';
-import Analytics from './pages/Analytics';
-import CropSuggester from './pages/CropSuggester';
-import FertilizerAgent from './pages/FertilizerAgent';
-import Calendar from './pages/Calendar';
-import AIAssistant from './pages/AIAssistant';
-import Notifications from './pages/Notifications';
-import Profile from './pages/Profile';
+// Load pages on demand so the initial bundle stays small.
+const Landing = lazy(() => import('./pages/Landing'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Farms = lazy(() => import('./pages/Farms'));
+const Crops = lazy(() => import('./pages/Crops'));
+const Weather = lazy(() => import('./pages/Weather'));
+const Disease = lazy(() => import('./pages/Disease'));
+const Irrigation = lazy(() => import('./pages/Irrigation'));
+const Market = lazy(() => import('./pages/Market'));
+const Schemes = lazy(() => import('./pages/Schemes'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const CropSuggester = lazy(() => import('./pages/CropSuggester'));
+const FertilizerAgent = lazy(() => import('./pages/FertilizerAgent'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const AIAssistant = lazy(() => import('./pages/AIAssistant'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Profile = lazy(() => import('./pages/Profile'));
 
 export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
-          <Routes>
+          <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-[var(--color-text-muted)]">Loading...</div>}>
+            <Routes>
             {/* Public routes */}
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
@@ -68,7 +70,8 @@ export default function App() {
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+            </Routes>
+          </Suspense>
         </BrowserRouter>
 
         {/* Global toast notifications */}

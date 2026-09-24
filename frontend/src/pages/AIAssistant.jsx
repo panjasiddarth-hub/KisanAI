@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import PageHeader from '../components/ui/PageHeader';
-import { Bot, Send, User, Zap, RefreshCw, Loader2, Sparkles } from 'lucide-react';
+import { Bot, Send, User, RefreshCw, Loader2, Sparkles } from 'lucide-react';
 
 const AGENTS = [
   { id: 'crop', name: 'Crop Agent', emoji: '🌱', description: 'Crop recommendation, sowing calendar, fertilization schedules', status: 'completed' },
