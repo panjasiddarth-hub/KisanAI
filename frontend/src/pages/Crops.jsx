@@ -10,7 +10,7 @@ import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import ProgressBar from '../components/ui/ProgressBar';
 import toast from 'react-hot-toast';
-import { Sprout, Plus, Edit2, Trash2, Calendar, Loader2, Leaf, ChevronDown } from 'lucide-react';
+import { Sprout, Plus, Edit2, Trash2, Loader2, Leaf, ChevronDown } from 'lucide-react';
 
 const STAGE_COLORS = {
   'Sowing': 'badge-blue',
@@ -171,7 +171,7 @@ export default function Crops() {
       await addCrop(data);
       toast.success('Crop added! 🌱');
       setShowAdd(false);
-    } catch (e) {}
+    } catch {}
     setSubmitting(false);
   };
 
@@ -181,7 +181,7 @@ export default function Crops() {
       await updateCrop(editCrop.id, data);
       toast.success('Crop updated!');
       setEditCrop(null);
-    } catch (e) {}
+    } catch {}
     setSubmitting(false);
   };
 
@@ -190,7 +190,7 @@ export default function Crops() {
       try {
         await deleteCrop(id);
         toast.success('Crop removed.');
-      } catch (e) {}
+      } catch {}
     }
   };
 

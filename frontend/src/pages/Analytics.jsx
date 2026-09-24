@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import StatCard from '../components/ui/StatCard';
-import { Bar, Line, Doughnut, Radar } from 'react-chartjs-2';
+import { Bar, Line, Radar } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement,
   LineElement, ArcElement, RadialLinearScale, Title, Tooltip, Legend, Filler

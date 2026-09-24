@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useForm } from 'react-hook-form';
 import PageHeader from '../components/ui/PageHeader';
 import toast from 'react-hot-toast';
-import { Loader2, User, Phone, MapPin, Mail, Edit2, CheckCircle, Warehouse, Sprout, TrendingUp } from 'lucide-react';
+import { Loader2, User, Phone, MapPin, Mail, Edit2, Warehouse, Sprout, TrendingUp } from 'lucide-react';
 
 export default function Profile() {
   const { user, updateProfile } = useAuth();

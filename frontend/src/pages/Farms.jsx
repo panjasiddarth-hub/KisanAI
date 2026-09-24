@@ -139,7 +139,7 @@ export default function Farms() {
       await addFarm(data);
       toast.success('Farm added successfully! 🏡');
       setShowAdd(false);
-    } catch (e) {
+    } catch {
       // toast already shown in hook
     }
     setSubmitting(false);
@@ -151,7 +151,7 @@ export default function Farms() {
       await updateFarm(editFarm.id, data);
       toast.success('Farm updated!');
       setEditFarm(null);
-    } catch (e) {
+    } catch {
       // error handled in hook
     }
     setSubmitting(false);
@@ -162,7 +162,7 @@ export default function Farms() {
       try {
         await deleteFarm(id);
         toast.success('Farm deleted.');
-      } catch (e) {}
+      } catch {}
     }
   };
 
