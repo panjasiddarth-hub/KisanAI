@@ -16,7 +16,7 @@ export function useCrops() {
           setCrops(data);
           setLoading(false);
         }
-      } catch (e) {
+      } catch {
         if (mounted) {
           toast.error('Failed to load crops');
           setLoading(false);

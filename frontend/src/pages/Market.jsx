@@ -38,7 +38,7 @@ export default function Market() {
           setMarketData(data);
           setLoading(false);
         }
-      } catch (e) {
+      } catch {
         if (mounted) {
           toast.error('Failed to fetch live market prices');
           setLoading(false);

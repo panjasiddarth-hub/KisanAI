@@ -7,7 +7,7 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement,
   LineElement, BarElement, Title, Tooltip, Legend, Filler
 } from 'chart.js';
-import { Sun, Cloud, CloudRain, CloudLightning, Wind, Droplets, Thermometer, Eye, Gauge } from 'lucide-react';
+import { Sun, Cloud, CloudRain, CloudLightning, Wind, Droplets, Thermometer, Gauge } from 'lucide-react';
 import { api } from '../api/client';
 import toast from 'react-hot-toast';
 
@@ -54,7 +54,7 @@ export default function Weather() {
           setWeather(data);
           setLoading(false);
         }
-      } catch (e) {
+      } catch {
         if (mounted) {
           toast.error('Failed to load weather data');
           setLoading(false);
