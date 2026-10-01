@@ -16,7 +16,7 @@ export function useFarms() {
           setFarms(data);
           setLoading(false);
         }
-      } catch (e) {
+      } catch {
         if (mounted) {
           toast.error('Failed to load farms');
           setLoading(false);
