@@ -1,4 +1,4 @@
-// src/config/db.js — MongoDB when configured, graceful in-memory fallback otherwise
+// Database connection — MongoDB when configured, graceful in-memory fallback otherwise
 import mongoose from 'mongoose';
 
 export async function connectDB() {
@@ -23,4 +23,3 @@ export async function connectDB() {
     console.warn('   Tip: Make sure your IP is whitelisted in MongoDB Atlas → Network Access.');
   }
 }
-

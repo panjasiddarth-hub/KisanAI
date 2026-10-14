@@ -29,9 +29,10 @@ frontend/  React 19 · Vite 8 · Tailwind v4 · react-router 7 · axios · chart
    │  calls /api (vite proxy → :5000)
 backend/   Node.js · Express · JWT (jsonwebtoken) · bcryptjs · multer · mongoose
    ├── src/agents/    cropAgent · fertilizerAgent · diseaseAgent · gemini
-   ├── src/routes/    auth · agents · calendar
-   ├── src/data/      crops.js (agronomy KB) · diseases.js (symptom KB)
-   └── store          MongoDB when MONGODB_URI set, else in-memory (demo mode)
+   ├── src/routes/    API endpoints
+   ├── src/data/      agronomy knowledge bases
+   └── src/database/  MongoDB connection · Mongoose models · persistence store
+ml-service/ Python ML models and retrieval service
 ```
 
 ## 🚀 Quick start (two terminals)
@@ -92,15 +93,33 @@ DELETE /api/calendar/:id
 
 ```
 KisanAI/
-├── backend/            # Express API + agents (this README covers it)
-├── frontend/
+├── frontend/                 # React website
 │   └── src/
-│       ├── api/        # axios client + offline fallbacks
-│       ├── pages/      # Dashboard, CropSuggester, FertilizerAgent, Disease, Calendar, …
-│       ├── components/ # layout (Sidebar/Topbar) + ui kit
-│       └── context/    # AuthContext (API + offline demo fallback)
-└── dist/               # last production build of the frontend
+│       ├── api/              # Axios client and offline fallbacks
+│       ├── components/       # Landing, app layout, and reusable UI
+│       ├── context/          # Authentication and theme providers
+│       ├── hooks/            # Shared data hooks
+│       ├── pages/            # Public and authenticated pages
+│       └── styles/           # Global and feature styles
+├── backend/                  # Express API
+│   └── src/
+│       ├── agents/           # Agriculture decision agents
+│       ├── data/             # Agronomy knowledge data
+│       ├── database/
+│       │   ├── config/       # Database connection
+│       │   ├── models/       # Mongoose schemas
+│       │   └── repositories/ # MongoDB/in-memory persistence
+│       ├── middleware/       # Request authentication
+│       └── routes/           # API route handlers
+└── ml-service/               # All Python ML code, dependencies, and model artifacts
+    ├── main.py               # FastAPI entry point
+    ├── schemas.py            # Request and response schemas
+    ├── requirements.txt      # ML service dependencies
+    ├── models/               # Trained models, encoders, and FAISS index
+    └── services/             # Crop, fertilizer, market, disease, and RAG logic
 ```
+
+See [`ml-service/README.md`](./ml-service/README.md) for running the ML API.
 
 ## 🧪 Verified
 

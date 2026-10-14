@@ -1,7 +1,7 @@
 // src/routes/farms.routes.js
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { farms } from '../repositories/store.js';
+import { farms } from '../database/repositories/store.js';
 
 const router = Router();
 router.use(requireAuth);

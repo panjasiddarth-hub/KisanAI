@@ -1,4 +1,4 @@
-// src/models/Crop.js
+// Crop persistence model.
 import mongoose from 'mongoose';
 
 const cropSchema = new mongoose.Schema(

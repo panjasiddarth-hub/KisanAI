@@ -1,7 +1,7 @@
 // src/routes/calendar.routes.js — /api/calendar/* — AI crop season planner
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { plans } from '../repositories/store.js';
+import { plans } from '../database/repositories/store.js';
 import { cropRule } from '../agents/fertilizerAgent.js';
 import { aiExplain } from '../agents/gemini.js';
 import { CROPS } from '../data/crops.js';
