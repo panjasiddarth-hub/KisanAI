@@ -1,4 +1,4 @@
-// src/models/CropPlan.js — a farmer's AI-generated crop season calendar
+// A farmer's AI-generated crop season calendar persistence model.
 import mongoose from 'mongoose';
 
 const eventSchema = new mongoose.Schema(

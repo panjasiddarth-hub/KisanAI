@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+:root {
+  --font-fraunces: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-grotesk: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme {
+  --color-ink: #0b100a;
+  --color-ink-2: #121a0f;
+  --color-ink-3: #1a2414;
+  --color-line: #2a361f;
+  --color-cream: #f4f0e1;
+  --color-cream-2: #e9e3cd;
+  --color-paper: #fbf9f0;
+  --color-leaf: #a3e635;
+  --color-leaf-soft: #d3f79b;
+  --color-leaf-deep: #4c8a2f;
+  --color-leaf-dim: #31491d;
+  --color-marigold: #f2a007;
+  --color-clay: #c4532e;
+  --color-skyw: #7ec8e3;
+  --color-mist: #a8bb97;
+  --color-dim: #5f7050;
+
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
 @layer base {
   :root {
     --color-primary: #059669; /* Emerald 600 - Rich, professional agritech green */
@@ -145,7 +172,7 @@
   .dark .badge-green { background: #064e3b; color: #6ee7b7; border-color: #065f46; }
   .dark .badge-yellow { background: #713f12; color: #fde047; border-color: #854d0e; }
   .dark .badge-red { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
-  .dark .badge-blue { background: #1e3a8a; color: #93c5fd; border-color: #1e40af; }
+  .dark .badge-blue { background: #1e3a8a; color: #93c5fd; border-color: #24408f; }
   .dark .badge-purple { background: #581c87; color: #d8b4fe; border-color: #6b21a8; }
 
   /* Skeleton loader */

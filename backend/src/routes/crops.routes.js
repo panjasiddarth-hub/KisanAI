@@ -1,7 +1,7 @@
 // src/routes/crops.routes.js
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { crops } from '../repositories/store.js';
+import { crops } from '../database/repositories/store.js';
 
 const router = Router();
 router.use(requireAuth);

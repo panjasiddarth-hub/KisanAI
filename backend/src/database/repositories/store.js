@@ -1,4 +1,4 @@
-// src/repositories/store.js — one async API over MongoDB or in-memory arrays
+// One async persistence API over MongoDB or in-memory arrays.
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { CropPlan } from '../models/CropPlan.js';

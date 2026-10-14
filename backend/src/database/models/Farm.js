@@ -1,4 +1,4 @@
-// src/models/Farm.js
+// Farm persistence model.
 import mongoose from 'mongoose';
 
 const farmSchema = new mongoose.Schema(

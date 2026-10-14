@@ -10,7 +10,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 
 // Load pages on demand so the initial bundle stays small.
-const Landing = lazy(() => import('./pages/Landing'));
+const Landing = lazy(() => import('./components/landing/landing'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -50,7 +50,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="farms" element={<Farms />} />
               <Route path="crops" element={<Crops />} />
