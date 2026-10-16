@@ -16,8 +16,9 @@ export async function requireAuth(req, res, next) {
     const payload = jwt.verify(token, SECRET());
     const user = await users.findById(payload.id);
     if (!user) return res.status(401).json({ error: 'User not found' });
-    req.userId = payload.id;
-    req.user = user;
+    const userId = String(user._id || user.id || payload.id);
+    req.userId = userId;
+    req.user = { ...user, id: userId };
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });

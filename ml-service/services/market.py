@@ -1,5 +1,5 @@
 from pathlib import Path
-from datetime import date
+import math
 
 import joblib
 import pandas as pd
@@ -77,12 +77,16 @@ def predict_market(data: dict):
         list(model.feature_names_in_)
     ]
 
-    prediction = model.predict(model_input)[0]
+    prediction = float(model.predict(model_input)[0])
+    model_source = "market_xgboost"
+    if not math.isfinite(prediction) or prediction <= 0:
+        prediction = row["rolling_mean_3"]
+        model_source = "rolling_mean_fallback"
 
     return {
-        "predicted_price": round(float(prediction), 2),
+        "predicted_price": round(prediction, 2),
         "Commodity": row["Commodity"],
         "Market": row["Market"],
         "State": row["State"],
-        "modelSource": "market_xgboost"
+        "modelSource": model_source
     }

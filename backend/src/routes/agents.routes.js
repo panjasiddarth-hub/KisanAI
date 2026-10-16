@@ -249,9 +249,8 @@ router.post('/fertilizer', async (req, res, next) => {
 // ============================================================
 // DISEASE DETECTION
 // ============================================================
-// Existing symptom-based implementation + optional Gemini
-// image analysis.
-// ML disease model will be connected later.
+// ML symptom ranking merged with treatment knowledge + optional
+// Gemini image analysis; local symptom rules remain the fallback.
 // ============================================================
 
 router.post(
@@ -306,6 +305,47 @@ router.post(
         return res.status(400).json({
           error: result.error,
         });
+      }
+
+
+      try {
+        const mlResponse = await fetch(
+          `${ML_SERVICE_URL}/predict/disease`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              crop: req.body?.crop,
+              symptoms,
+            }),
+          }
+        );
+
+        if (!mlResponse.ok) {
+          throw new Error(`ML service returned ${mlResponse.status}`);
+        }
+
+        const mlResult = await mlResponse.json();
+        const knowledgeByName = new Map(
+          result.diagnosis.map((diagnosis) => [diagnosis.name, diagnosis])
+        );
+
+        result.diagnosis = mlResult.recommendations.map((recommendation, index) => {
+          const knowledge = knowledgeByName.get(recommendation.name) || {};
+          return {
+            ...knowledge,
+            ...recommendation,
+            confidence: req.file && index === 0
+              ? Math.min(98, recommendation.confidence + 5)
+              : recommendation.confidence,
+          };
+        });
+        result.modelSource = mlResult.modelSource;
+      } catch (mlError) {
+        console.warn(
+          'Disease ML service unavailable. Using rule-engine fallback.',
+          mlError.message
+        );
       }
 
 
@@ -373,7 +413,7 @@ router.post(
         modelSource:
           result.visionModelUsed
             ? 'gemini_vision'
-            : 'rule_engine',
+            : result.modelSource || 'rule_engine',
       });
 
     } catch (e) {

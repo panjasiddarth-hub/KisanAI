@@ -70,6 +70,19 @@ class RAGResponse(BaseModel):
     question: str
     results: list[dict]
 
+
+class DiseaseRequest(BaseModel):
+    crop: str = Field(..., min_length=1)
+    symptoms: list[str] = Field(..., min_length=1)
+
+
+class DiseaseResponse(BaseModel):
+    crop: str
+    prediction: str
+    recommendations: list[dict]
+    modelSource: str
+    disclaimer: str
+
 class MarketResponse(BaseModel):
     predicted_price: float
     Commodity: str
