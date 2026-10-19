@@ -12,12 +12,12 @@ import {
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'My Farm', icon: Warehouse, path: '/farms' },
   { label: 'AI Assistant', icon: Bot, path: '/ai-assistant' },
   { label: 'Crop Suggester', icon: Sprout, path: '/agents/crop' },
   { label: 'Fertilizer Agent', icon: FlaskConical, path: '/agents/fertilizer' },
   { label: 'Diseases', icon: Stethoscope, path: '/disease' },
   { label: 'Farm Calendar', icon: CalendarCheck, path: '/calendar' },
-  { label: 'My Farm', icon: Warehouse, path: '/farms' },
   { label: 'Crop Planning', icon: CalendarDays, path: '/crops' },
   { label: 'Weather', icon: CloudSun, path: '/weather' },
   { label: 'Market Intelligence', icon: BarChart3, path: '/market' },

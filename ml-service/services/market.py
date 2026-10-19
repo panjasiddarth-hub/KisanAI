@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import date
+from functools import lru_cache
 
 import joblib
 import pandas as pd
@@ -17,8 +18,9 @@ ENCODER_PATH = (
     / "market_encoder.pkl"
 )
 
-model = joblib.load(MODEL_PATH)
-encoder = joblib.load(ENCODER_PATH)
+@lru_cache(maxsize=1)
+def load_artifacts():
+    return joblib.load(MODEL_PATH), joblib.load(ENCODER_PATH)
 
 
 NUMERIC_FEATURES = [
@@ -39,6 +41,8 @@ CATEGORICAL_FEATURES = [
 
 
 def predict_market(data: dict):
+    model, encoder = load_artifacts()
+
     # Create input row
     row = {
         "lag_1": float(data["lag_1"]),

@@ -1,6 +1,53 @@
 import { Router } from 'express';
+import { geocode, isValidCoord } from '../services/openMeteo.js';
 
 const router = Router();
+
+router.get('/geocode', async (req, res, next) => {
+  const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  if (query.length < 2 || query.length > 120) {
+    return res.status(400).json({ error: 'Search for a place using 2 to 120 characters' });
+  }
+  try {
+    const results = await geocode(query);
+    res.json({ results });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/reverse-geocode', async (req, res, next) => {
+  const latValue = typeof req.query.lat === 'string' ? req.query.lat.trim() : '';
+  const lonValue = typeof req.query.lon === 'string' ? req.query.lon.trim() : '';
+  const lat = Number(latValue);
+  const lon = Number(lonValue);
+  if (!latValue || !lonValue || !isValidCoord(lat, lon)) {
+    return res.status(400).json({ error: 'A valid latitude and longitude are required' });
+  }
+  try {
+    const url = new URL('https://nominatim.openstreetmap.org/reverse');
+    url.search = new URLSearchParams({
+      format: 'jsonv2',
+      lat: String(lat),
+      lon: String(lon),
+      zoom: '12',
+      addressdetails: '1',
+    }).toString();
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'KisanAI farmer farm map' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new Error(`Place lookup returned HTTP ${response.status}`);
+    const data = await response.json();
+    const address = data.address || {};
+    const locality = address.village || address.town || address.city
+      || address.municipality || address.hamlet || address.suburb;
+    const parts = [...new Set([locality, address.county, address.state, address.country].filter(Boolean))];
+    res.json({ label: parts.join(', ') || data.display_name || '' });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Mapping WMO weather codes to UI icons/conditions
 const mapCodeToCondition = (code) => {
@@ -22,7 +69,7 @@ router.get('/', async (req, res, next) => {
     const lon = req.query.lon || 73.78;
     const locationName = req.query.location || 'Nashik, Maharashtra';
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m,surface_pressure&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m,surface_pressure&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum&timezone=auto`;
     
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch from Open-Meteo');
@@ -38,6 +85,7 @@ router.get('/', async (req, res, next) => {
       wind: Math.round(data.current.wind_speed_10m),
       pressure: Math.round(data.current.surface_pressure),
       rainChance: Math.round(data.current.precipitation_probability || 0),
+      rainfallMm: Number.isFinite(data.daily?.precipitation_sum?.[0]) ? data.daily.precipitation_sum[0] : null,
       condition: currentCode.condition,
       icon: currentCode.icon
     };
@@ -55,7 +103,8 @@ router.get('/', async (req, res, next) => {
         condition: mapped.condition,
         high: Math.round(data.daily.temperature_2m_max[i]),
         low: Math.round(data.daily.temperature_2m_min[i]),
-        rain: Math.round(data.daily.precipitation_probability_max[i])
+        rain: Math.round(data.daily.precipitation_probability_max[i]),
+        rainfallMm: Number.isFinite(data.daily.precipitation_sum?.[i]) ? data.daily.precipitation_sum[i] : null,
       };
     });
 

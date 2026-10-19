@@ -1,4 +1,4 @@
-// src/routes/agents.routes.js — /api/agents/*
+﻿// src/routes/agents.routes.js â€” /api/agents/*
 // ML-powered crop recommendation + rule-engine fallback
 // Fertilizer and disease routes remain on the existing implementations for now.
 
@@ -74,11 +74,9 @@ router.get('/meta', (_req, res) => {
 });
 
 
+
 // ============================================================
-// CROP RECOMMENDATION
-// ============================================================
-// Primary: Random Forest ML model through FastAPI
-// Fallback: Existing rule engine
+// CROP RECOMMENDATION â€” RULE-BASED MODE
 // ============================================================
 
 router.post('/crop', async (req, res, next) => {
@@ -87,127 +85,33 @@ router.post('/crop', async (req, res, next) => {
 
     console.log('Crop request received:', input);
 
-    // --------------------------------------------------------
-    // 1. Try ML Service
-    // --------------------------------------------------------
+    // Use the existing rule-based crop recommendation engine.
+    const result = suggestCrops(input);
 
-    try {
-      const mlResponse = await fetch(
-        `${ML_SERVICE_URL}/predict/crop`,
-        {
-          method: 'POST',
-
-          headers: {
-            'Content-Type': 'application/json',
-          },
-
-          body: JSON.stringify({
-            N: Number(input.N),
-            P: Number(input.P),
-            K: Number(input.K),
-
-            temperature: Number(input.temperature),
-
-            humidity: Number(input.humidity),
-
-            ph: Number(input.ph),
-
-            rainfall: Number(input.rainfall),
-          }),
-        }
-      );
-
-      // FastAPI validation/model error
-      if (!mlResponse.ok) {
-        const errorText = await mlResponse.text();
-
-        throw new Error(
-          `ML service returned ${mlResponse.status}: ${errorText}`
-        );
-      }
-
-      const mlResult = await mlResponse.json();
-
-      console.log(
-        'Crop ML prediction:',
-        mlResult
-      );
-
-      // ------------------------------------------------------
-      // 2. Generate explanation
-      // ------------------------------------------------------
-
-      const explanation =
-        (await aiExplain('crop', mlResult)) ||
-        `Based on the soil and environmental conditions provided, the ML model recommends ${mlResult.prediction} as the top crop.`;
-
-      // ------------------------------------------------------
-      // 3. Return ML result
-      // ------------------------------------------------------
-
-      return res.json({
-        ...mlResult,
-
-        explanation,
-
-        explanationSource:
-          process.env.GEMINI_API_KEY
-            ? 'gemini'
-            : 'template',
-
-        modelSource: 'crop_random_forest',
-      });
-
-    } catch (mlError) {
-
-      // ------------------------------------------------------
-      // ML SERVICE FAILED
-      // Use existing rule engine as fallback
-      // ------------------------------------------------------
-
-      console.warn(
-        'Crop ML service unavailable. Using rule-engine fallback.'
-      );
-
-      console.warn(
-        'ML error:',
-        mlError.message
-      );
-
-      const result = suggestCrops(input);
-
-      if (result.error) {
-        return res.status(400).json({
-          error: result.error,
-        });
-      }
-
-      const explanation =
-        (await aiExplain('crop', result)) ||
-        templateExplanation(result);
-
-      return res.json({
-        ...result,
-
-        explanation,
-
-        explanationSource:
-          process.env.GEMINI_API_KEY
-            ? 'gemini'
-            : 'template',
-
-        modelSource: 'rule_engine_fallback',
+    if (result.error) {
+      return res.status(400).json({
+        error: result.error,
       });
     }
 
+    const explanation =
+      (await aiExplain('crop', result)) ||
+      templateExplanation(result);
+
+    return res.json({
+      ...result,
+      explanation,
+      explanationSource: process.env.GEMINI_API_KEY
+        ? 'gemini'
+        : 'template',
+      modelSource: 'rule_engine',
+    });
   } catch (e) {
     next(e);
   }
 });
 
-
-// ============================================================
-// FERTILIZER RECOMMENDATION
+      // FERTILIZER RECOMMENDATION
 // ============================================================
 // Existing implementation for now.
 // We will connect fertilizer.pkl separately.

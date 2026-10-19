@@ -76,8 +76,8 @@ function Hero() {
               <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-ink/65 md:text-base">
                 From farm to future — Crop Recommendation, Soil & Fertiliser,
                 Disease Detection, Weather Intelligence, Market Insights and
-                Government Schemes. Multi-agent AI, Graph-RAG grounded, in the
-                farmer’s own language.
+                Government Schemes. Every answer shows where it comes from —
+                a trained model, a calculation or live data.
               </p>
             </Reveal>
             <Reveal delay={0.24} className="mt-8 flex flex-wrap items-center gap-3">
@@ -98,11 +98,11 @@ function Hero() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <CloudOff className="h-3.5 w-3.5 text-leaf-deep"/>
-                  Graph-RAG grounded
+                  Sources shown
                 </span>
                 <span className="flex items-center gap-1.5">
                   <MessagesSquare className="h-3.5 w-3.5 text-leaf-deep"/>
-                  Voice-first
+                  Soil Health Card based
                 </span>
               </div>
             </Reveal>
@@ -166,10 +166,10 @@ function Hero() {
         {/* stats */}
         <div className="mt-10 grid grid-cols-2 gap-y-8 border-t border-ink/10 pt-8 md:grid-cols-4 md:pt-10">
           {[
-            { v: 95, s: "%", l: "disease model validation accuracy" },
-            { v: 38, s: "", l: "plant disease classes covered" },
+            { v: 18, s: "", l: "crops with agronomy rules" },
+            { v: 12, s: "", l: "Soil Health Card values used" },
             { v: 6, s: "", l: "farming modules in one app" },
-            { v: 3, s: "", l: "agents check every answer" },
+            { v: 19, s: "", l: "diseases in the symptom guide" },
         ].map((s, i) => (<Reveal key={s.l} delay={i * 0.06}>
               <p className="font-display text-4xl font-medium md:text-5xl">
                 <CountUp to={s.v} suffix={s.s}/>
@@ -229,7 +229,7 @@ const AGENTS = [
             "Season and water source considered",
             "Fits the farm’s available budget",
         ],
-        sample: "Cotton 92% · Paddy 87% · Tur 81%",
+        sample: "Example: Cotton 92 · Paddy 87 · Tur 81 (fit score / 100)",
         href: "/agents/crop",
     },
     {
@@ -250,14 +250,14 @@ const AGENTS = [
         n: "03",
         icon: Stethoscope,
         title: "Disease Detection",
-        tag: "Snap a leaf, get a cure",
-        desc: "Upload a leaf photo or describe symptoms. Top likely diseases, with chemical and organic treatment, before the problem spreads.",
+        tag: "Describe symptoms, see likely causes",
+        desc: "Tick the symptoms you see. KisanAI matches them against its disease guide and lists likely diseases with chemical and organic treatment. Photo diagnosis is not available yet.",
         points: [
-            "38 plant disease classes",
-            "MobileNetV2 leaf-photo model",
-            "Validation Agent checks the cure",
+            "19 diseases across 7 crops",
+            "Symptom matching — no image model yet",
+            "Treatment and prevention for each match",
         ],
-        sample: "Leaf blight 87% · Rust 62% · Wilt 41%",
+        sample: "Example: 3 of 4 signature symptoms matched",
         href: "/disease",
     },
     {
@@ -310,10 +310,10 @@ function Agents() {
         <div className="flex flex-wrap items-end justify-between gap-6">
           <SectionHead eyebrow="Six farming modules" title={<>
                 One assistant, <span className="italic text-leaf">six modules.</span>
-              </>} desc="From sowing to selling. Retrieval, Reasoning and Validation agents cross-check every answer before it is shown — Graph-RAG grounded, not a black box."/>
+              </>} desc="From sowing to selling. Each answer shows its source — a trained model, a calculation or live data — and the inputs it used. Not a black box."/>
           <Reveal delay={0.15}>
             <span className="inline-flex items-center gap-2 rounded-full border border-leaf/30 bg-leaf/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-leaf">
-              <Cpu className="h-3.5 w-3.5"/> Graph-RAG + Validation Agent
+              <Cpu className="h-3.5 w-3.5"/> Trained models + transparent rules
             </span>
           </Reveal>
         </div>
@@ -371,13 +371,13 @@ const STEPS = [
     },
     {
         icon: Workflow,
-        t: "Agents reason together",
-        d: "Retrieval, Reasoning and Validation agents cross-check the answer.",
+        t: "Models and rules do the work",
+        d: "Trained models where the inputs allow, agronomic calculations elsewhere — each answer says which.",
     },
     {
         icon: CalendarRange,
         t: "A season plan lands",
-        d: "40+ dated activities, from ploughing to the harvest window.",
+        d: "14–19 dated activities, from land preparation to the harvest window.",
     },
     {
         icon: ShieldCheck,
@@ -451,7 +451,7 @@ function Scoring() {
             <SectionHead eyebrow="Explainable by design" title={<>
                   Every score,{" "}
                   <span className="italic text-leaf">broken open.</span>
-                </>} desc="Crop Recommendation never says “trust me”. A 92% match is the sum of visible judgements — soil, season, pH and water — checked by the Validation Agent before it is shown."/>
+                </>} desc="Crop Recommendation never says “trust me”. A 92% match is the sum of visible judgements — soil, season, pH and water — each one shown with its reason (rule-engine scores; the trained model reports its own probabilities)."/>
             <Reveal delay={0.15}>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Chip tone="leaf">No hidden weights</Chip>
@@ -567,21 +567,21 @@ const STORIES = [
     {
         quote: "Pehle sirf anumaan thi. Ab Crop Recommendation ne bataya ki is season moong dal kyun behtar hai — aur Soil & Fertiliser ne bola kitna DAP. Sab samajh mein aa gaya.",
         name: "Ramesh Patil",
-        role: "Wheat & Pulses Farmer · Madhya Pradesh",
+        role: "Illustrative persona · Wheat & pulses, Madhya Pradesh",
         initials: "RP",
         bg: "bg-leaf-deep",
     },
     {
-        quote: "Mere paddy mein disease thi. Disease Detection ko photo bheja, ilaaj mila — chemical aur organic dono options ke saath. Fasal bach gayi.",
+        quote: "Paddy ke patton par jo lakshan dikhe, wahi chune. Disease page ne sambhavit bimari aur chemical-organic dono upaay bataye — phir KVK se confirm kiya.",
         name: "Lakshmi Amma",
-        role: "Rice Farmer · Kerala",
+        role: "Illustrative persona · Rice, Kerala",
         initials: "LA",
         bg: "bg-marigold",
     },
     {
         quote: "Weather Intelligence aur farm calendar sab kuch bata dete hain — kab irrigation, kab spray, kab harvest. Ghar baithe poora plan ho jata hai.",
         name: "Sukhdev Singh",
-        role: "Cotton Farmer · Punjab",
+        role: "Illustrative persona · Cotton, Punjab",
         initials: "SS",
         bg: "bg-clay",
     },
@@ -674,7 +674,7 @@ function Footer() {
       </div>
       <div className="border-t border-line/60 py-5 text-center text-[11px] tracking-wide text-dim">
         KisanAI · Keshav Memorial Institute of Technology, Hyderabad ·
-        Multi-Agent AI + Graph-RAG + Voice-first
+        Trained models + transparent rules
       </div>
     </footer>);
 }

@@ -1,5 +1,5 @@
 // src/pages/Weather.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import StatCard from '../components/ui/StatCard';
 import { Line, Bar } from 'react-chartjs-2';
@@ -7,8 +7,9 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement,
   LineElement, BarElement, Title, Tooltip, Legend, Filler
 } from 'chart.js';
-import { Sun, Cloud, CloudRain, CloudLightning, Wind, Droplets, Thermometer, Gauge } from 'lucide-react';
-import { api } from '../api/client';
+import { Sun, Cloud, CloudRain, CloudLightning, Wind, Droplets, Thermometer, Gauge, AlertTriangle } from 'lucide-react';
+import { api, apiErrorMessage } from '../api/client';
+import { useFarms, isConfirmedLocation } from '../hooks/useFarms';
 import toast from 'react-hot-toast';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
@@ -31,74 +32,94 @@ const getIcon = (name) => {
 };
 
 export default function Weather() {
+  const { farms, loading: farmsLoading } = useFarms();
+  const locatedFarms = farms.filter(f => isConfirmedLocation(f.coordinates));
+  // { type: 'farm', farmId } | { type: 'coords', lat, lon, label, source } | { type: 'default' }
+  const [selection, setSelection] = useState(null);
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState(null);
+  const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [places, setPlaces] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const initialised = useRef(false);
+
+  // Device location (original behaviour), labelled via reverse geocoding; falls back to the flagged default
+  const locateDevice = useCallback(() => {
+    if (!('geolocation' in navigator)) { setSelection({ type: 'default' }); return; }
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        let label = 'Current Location';
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.display_name) {
+              const parts = data.display_name.split(',').map(s => s.trim());
+              label = parts.slice(0, Math.min(4, parts.length)).join(', ');
+            }
+          }
+        } catch (err) {
+          console.warn('Reverse geocoding failed', err);
+        }
+        setSelection({ type: 'coords', lat, lon, label, source: 'device' });
+      },
+      (err) => {
+        console.warn('Geolocation failed, using the default location', err);
+        setSelection({ type: 'default' });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }, []);
+
+  // First choice: a farm with confirmed coordinates; then the device; then the (clearly labelled) default
+  useEffect(() => {
+    if (farmsLoading || initialised.current) return;
+    initialised.current = true;
+    const firstFarm = farms.find(f => isConfirmedLocation(f.coordinates));
+    if (firstFarm) setSelection({ type: 'farm', farmId: firstFarm.id });
+    else locateDevice();
+  }, [farmsLoading, farms, locateDevice]);
 
   useEffect(() => {
+    if (!selection) return;
     let mounted = true;
-    const fetchWeather = async (lat, lon, location) => {
-      try {
-        const params = new URLSearchParams();
-        if (lat && lon) {
-          params.append('lat', lat);
-          params.append('lon', lon);
-        }
-        if (location) {
-          params.append('location', location);
-        }
-        
-        const query = params.toString() ? `?${params.toString()}` : '';
-        const { data } = await api.get(`/weather${query}`);
-        
-        if (mounted) {
-          setWeather(data);
-          setLoading(false);
-        }
-      } catch {
-        if (mounted) {
-          toast.error('Failed to load weather data');
-          setLoading(false);
-        }
-      }
-    };
-
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-          let locName = 'Current Location';
-          
-          try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.display_name) {
-                // Get the most precise components from display_name (usually the first 3-4 parts: building, road, neighbourhood, city)
-                const parts = data.display_name.split(',').map(s => s.trim());
-                locName = parts.slice(0, Math.min(4, parts.length)).join(', ');
-              }
-            }
-          } catch (err) {
-            console.warn('Reverse geocoding failed', err);
-          }
-          
-          if (mounted) {
-            fetchWeather(lat, lon, locName);
-          }
-        },
-        (error) => {
-          console.warn('Geolocation failed, using default', error);
-          if (mounted) fetchWeather();
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-      );
-    } else {
-      fetchWeather();
-    }
-    
+    setLoading(true);
+    setError('');
+    const request = selection.type === 'farm'
+      ? api.get(`/farms/${selection.farmId}/weather`)
+      : selection.type === 'coords'
+        ? api.get('/weather', { params: { lat: selection.lat, lon: selection.lon, location: selection.label } })
+        : api.get('/weather');
+    request
+      .then(({ data }) => { if (mounted) setWeather(data); })
+      .catch((err) => { if (mounted) { setWeather(null); setError(apiErrorMessage(err, 'Weather data is unavailable right now.')); } })
+      .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, []);
+  }, [selection]);
+
+  // Manual location entry (fallback when a farm has no confirmed location or GPS is unavailable)
+  const searchPlaces = async (e) => {
+    e.preventDefault();
+    if (query.trim().length < 2) return;
+    setSearching(true);
+    try {
+      const { data } = await api.get('/weather/geocode', { params: { q: query.trim() } });
+      setPlaces(data.results);
+      if (!data.results.length) toast('No places found — try a nearby town or district.', { icon: '🔎' });
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Place search is unavailable right now'));
+    } finally { setSearching(false); }
+  };
+
+  const onPick = (value) => {
+    if (value.startsWith('farm:')) setSelection({ type: 'farm', farmId: value.slice(5) });
+    else if (value === 'device') locateDevice();
+  };
+  const selectValue = selection?.type === 'farm' ? `farm:${selection.farmId}` : selection?.type || '';
 
   const TEMP_DATA = weather ? {
     labels: weather.forecast.map(d => d.day.slice(0, 3)),
@@ -123,7 +144,53 @@ export default function Weather() {
 
   return (
     <div className="page-content">
-      <PageHeader title="Weather Center" subtitle={weather ? `Live data for ${weather.current.location}` : 'Loading...'} />
+      <PageHeader title="Weather Center" subtitle={weather ? `${weather.farm ? 'Farm weather' : 'Weather'} for ${weather.current.location}${weather.isDefaultLocation ? ' (default location — not your farm)' : ''}` : error ? 'Weather unavailable' : 'Loading...'} />
+
+      <div className="card p-4 mb-5 space-y-3" data-testid="weather-location-bar">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[220px]">
+            <label className="text-[0.68rem] font-semibold text-[var(--color-text)] block mb-1">Show weather for</label>
+            <select className="input text-sm !py-2" value={selectValue} onChange={(e) => onPick(e.target.value)} data-testid="weather-location-select">
+              {!selection && <option value="">Choosing a location…</option>}
+              {locatedFarms.map(f => <option key={f.id} value={`farm:${f.id}`}>🏡 {f.name}</option>)}
+              <option value="device">📍 My device location</option>
+              {selection?.type === 'coords' && <option value="coords">{selection.source === 'device' ? '📍' : '🔎'} {selection.label}</option>}
+              {selection?.type === 'default' && <option value="default">Default location (Nashik) — not your farm</option>}
+            </select>
+          </div>
+          <form onSubmit={searchPlaces} className="flex items-end gap-2 flex-1 min-w-[240px]">
+            <div className="flex-1">
+              <label className="text-[0.68rem] font-semibold text-[var(--color-text)] block mb-1">Or enter a location</label>
+              <input className="input text-sm !py-2" placeholder="Village, town or district" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </div>
+            <button type="submit" disabled={searching} className="btn-secondary text-sm">{searching ? 'Searching…' : 'Search'}</button>
+          </form>
+        </div>
+        {places.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {places.map(p => (
+              <button key={`${p.lat},${p.lon}`} onClick={() => { setSelection({ type: 'coords', lat: p.lat, lon: p.lon, label: p.label, source: 'manual' }); setPlaces([]); }} className="badge badge-blue cursor-pointer">{p.label}</button>
+            ))}
+          </div>
+        )}
+        <p className="text-[0.7rem] text-[var(--color-text-muted)]">
+          {farms.length > locatedFarms.length && `${farms.length - locatedFarms.length} farm(s) have no confirmed location yet — add it on My Farms. `}
+          “Now” values are a weather-model estimate for the current 15 minutes, not a ground-station observation. Everything else on this page is a forecast.
+        </p>
+      </div>
+
+      {error && !loading && (
+        <div className="card p-5 mb-5 flex items-start gap-3" role="alert" data-testid="weather-error">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          <div className="text-sm">
+            <p className="font-semibold text-[var(--color-text)]">Weather unavailable</p>
+            <p className="text-[var(--color-text-muted)]">{error}</p>
+            <button onClick={() => setSelection(sel => (sel ? { ...sel } : sel))} className="btn-secondary text-xs mt-2">Try again</button>
+          </div>
+        </div>
+      )}
+
+      {!error && (<>
 
       <div className="card mb-5 overflow-hidden">
         <div className="bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 p-6 text-white relative">
@@ -133,7 +200,7 @@ export default function Weather() {
           {loading || !weather
             ? <div className="space-y-3"><div className="skeleton h-12 w-32 rounded bg-white/20" /><div className="skeleton h-6 w-48 rounded bg-white/20" /></div>
             : <>
-              <p className="text-blue-100 text-sm mb-1">📍 {weather.current.location} · Updated just now</p>
+              <p className="text-blue-100 text-sm mb-1">📍 {weather.current.location}{weather.isDefaultLocation ? ' (default location — not your farm)' : ''} · Current conditions: weather-model estimate, not a station observation</p>
               <div className="flex items-end gap-4 mb-4">
                 <span className="text-7xl font-bold">{weather.current.temperature}°C</span>
                 <div>
@@ -161,10 +228,10 @@ export default function Weather() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-        <StatCard loading={loading} title="Temperature" value={weather ? `${weather.current.temperature}°C` : '-'} icon={Thermometer} iconBg="bg-orange-100 dark:bg-orange-900/30" iconColor="text-orange-500" subtitle={weather ? `Max ${weather.forecast[0].high}° · Min ${weather.forecast[0].low}°` : '-'} />
-        <StatCard loading={loading} title="Humidity" value={weather ? `${weather.current.humidity}%` : '-'} icon={Droplets} iconBg="bg-blue-100 dark:bg-blue-900/30" iconColor="text-blue-500" subtitle="Comfortable range" />
-        <StatCard loading={loading} title="Wind Speed" value={weather ? `${weather.current.wind} km/h` : '-'} icon={Wind} iconBg="bg-teal-100 dark:bg-teal-900/30" iconColor="text-teal-500" subtitle="Current speed" />
-        <StatCard loading={loading} title="Rain Probability" value={weather ? `${weather.current.rainChance}%` : '-'} icon={CloudRain} iconBg="bg-indigo-100 dark:bg-indigo-900/30" iconColor="text-indigo-500" subtitle="Today's chance" />
+        <StatCard loading={loading} title="Temperature" value={weather ? `${weather.current.temperature}°C` : '-'} icon={Thermometer} iconBg="bg-orange-100 dark:bg-orange-900/30" iconColor="text-orange-500" subtitle={weather ? `Today's forecast: max ${weather.forecast[0].high}° · min ${weather.forecast[0].low}°` : '-'} />
+        <StatCard loading={loading} title="Humidity" value={weather ? `${weather.current.humidity}%` : '-'} icon={Droplets} iconBg="bg-blue-100 dark:bg-blue-900/30" iconColor="text-blue-500" subtitle="Now · model estimate" />
+        <StatCard loading={loading} title="Wind Speed" value={weather ? `${weather.current.wind} km/h` : '-'} icon={Wind} iconBg="bg-teal-100 dark:bg-teal-900/30" iconColor="text-teal-500" subtitle="Now · model estimate" />
+        <StatCard loading={loading} title="Rain Probability" value={weather ? `${weather.current.rainChance}%` : '-'} icon={CloudRain} iconBg="bg-indigo-100 dark:bg-indigo-900/30" iconColor="text-indigo-500" subtitle="This hour · forecast" />
       </div>
 
       <div className="card p-5 mb-5">
@@ -217,14 +284,15 @@ export default function Weather() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
         <div className="card p-5">
-          <h3 className="font-bold text-sm text-[var(--color-text)] mb-3">Temperature Trend (7 Days)</h3>
+          <h3 className="font-bold text-sm text-[var(--color-text)] mb-3">Temperature Forecast (7 Days)</h3>
           {loading || !weather ? <div className="skeleton h-44 rounded-xl" /> : <div className="h-44"><Line data={TEMP_DATA} options={chartOpts('°C')} /></div>}
         </div>
         <div className="card p-5">
-          <h3 className="font-bold text-sm text-[var(--color-text)] mb-3">Rain Probability (7 Days)</h3>
+          <h3 className="font-bold text-sm text-[var(--color-text)] mb-3">Rain Probability Forecast (7 Days)</h3>
           {loading || !weather ? <div className="skeleton h-44 rounded-xl" /> : <div className="h-44"><Bar data={RAIN_DATA} options={chartOpts('%')} /></div>}
         </div>
       </div>
+      </>)}
     </div>
   );
 }

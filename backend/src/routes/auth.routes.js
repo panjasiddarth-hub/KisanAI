@@ -1,6 +1,6 @@
 // src/routes/auth.routes.js — /api/auth/*
 import { Router } from 'express';
-import { users } from '../database/repositories/store.js';
+import { users } from '../repositories/store.js';
 import { signToken, requireAuth } from '../middleware/auth.js';
 
 const router = Router();

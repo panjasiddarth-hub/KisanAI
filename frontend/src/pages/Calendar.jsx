@@ -1,12 +1,14 @@
 // src/pages/Calendar.jsx — AI crop season planner (timeline from sowing to harvest)
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, isOfflineError, apiErrorMessage } from '../api/client';
+import { farmApi } from '../hooks/useFarms';
 import { FALLBACK_META } from '../api/fallback';
 import OfflineCard from '../components/ui/OfflineCard';
 import {
   CalendarDays, Loader2, Sparkles, Droplets, FlaskConical, Bug,
   Sprout, Tractor, Scissors, CheckCircle2, Trash2, Wheat, Circle,
-  MapPin, Bot
+  MapPin, Bot, Warehouse, AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -30,6 +32,8 @@ const AGENT_BADGE = {
 const monthLabel = (dateStr) => new Date(dateStr).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 const dayLabel = (dateStr) => new Date(dateStr).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 const isPast = (dateStr) => dateStr < new Date().toISOString().slice(0, 10);
+// Farm area → acres for prefill. Bigha varies by state, so the farmer enters acres themselves.
+const ACRES_PER_UNIT = { acres: 1, hectares: 2.47105 };
 
 export default function Calendar() {
   const [meta, setMeta] = useState(FALLBACK_META);
@@ -40,6 +44,11 @@ export default function Calendar() {
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [offline, setOffline] = useState(false);
   const [explanation, setExplanation] = useState('');
+  const [warnings, setWarnings] = useState([]);
+  // Farm context when arriving from a farm recommendation (/calendar?farmId=...)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const farmIdParam = searchParams.get('farmId');
+  const [farmCtx, setFarmCtx] = useState(null);
 
   const load = useCallback(async () => {
     setLoadingPlans(true);
@@ -59,13 +68,43 @@ export default function Calendar() {
     load();
   }, [load]);
 
+  // Prefill from the farm's saved selection (server is the source of truth, not URL values)
+  useEffect(() => {
+    if (!farmIdParam) { setFarmCtx(null); return; }
+    let alive = true;
+    farmApi.get(farmIdParam)
+      .then((farm) => {
+        if (!alive) return;
+        const sel = farm.selectedCrop;
+        const factor = ACRES_PER_UNIT[farm.areaUnit];
+        setFarmCtx({ farm, areaNote: factor ? null : `This farm's area is ${farm.area} ${farm.areaUnit} — enter the equivalent acres (bigha size varies by state).` });
+        setForm(f => ({
+          ...f,
+          crop: sel?.calendarCrop || f.crop,
+          sowingDate: sel?.sowingDate || f.sowingDate,
+          areaAcres: factor ? Math.round(farm.area * factor * 100) / 100 : '',
+        }));
+      })
+      .catch((err) => {
+        if (!alive) return;
+        toast.error(err.response?.status === 404 ? 'Farm not found' : apiErrorMessage(err));
+        setSearchParams({}, { replace: true });
+      });
+    return () => { alive = false; };
+  }, [farmIdParam, setSearchParams]);
+
   const generate = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      const { data } = await api.post('/calendar/generate', { ...form, areaAcres: Number(form.areaAcres) });
+      const farmFields = farmCtx ? { farmId: farmCtx.farm.id, recommendationId: farmCtx.farm.selectedCrop?.recommendationId } : {};
+      const { data } = await api.post('/calendar/generate', { ...form, areaAcres: Number(form.areaAcres), ...farmFields });
       setExplanation(data.explanation);
-      toast.success(`${data.plan.crop} season planned — ${data.plan.events.length} activities scheduled!`);
+      setWarnings(data.warnings || []);
+      if (data.existing) toast(`A plan for this farm, crop and sowing date already exists — showing it.`, { icon: 'ℹ️' });
+      else toast.success(`${data.plan.crop} season planned — ${data.plan.events.length} activities scheduled!`);
+      // Drop the prefill from the URL so a refresh can't resubmit (the server also refuses duplicates)
+      if (farmCtx) { setSearchParams({}, { replace: true }); setFarmCtx(null); }
       await load();
       setActiveId(data.plan.id);
     } catch (err) {
@@ -90,6 +129,7 @@ export default function Calendar() {
     } catch (err) { toast.error(apiErrorMessage(err)); }
   };
 
+  const cropOptions = meta.crops.includes(form.crop) ? meta.crops : [form.crop, ...meta.crops];
   const active = plans.find(p => p.id === activeId);
   const doneCount = active ? active.events.filter(e => e.done).length : 0;
 
@@ -124,12 +164,27 @@ export default function Calendar() {
         <p className="text-sm text-[var(--color-text-muted)] mt-1">Pick a crop and sowing date — the agents plan your entire season: fertilizer, irrigation, scouting and harvest.</p>
       </div>
 
+      {farmCtx && (
+        <div className="rounded-2xl border border-green-200 bg-green-50/70 dark:bg-green-950/15 dark:border-green-900/40 p-3 mb-3 text-xs text-[var(--color-text)]" data-testid="calendar-farm-context">
+          <p className="font-bold flex items-center gap-1.5"><Warehouse className="w-4 h-4 text-green-700" /> Planning for {farmCtx.farm.name}</p>
+          <p className="mt-0.5 text-[var(--color-text-muted)]">
+            {farmCtx.farm.selectedCrop?.crop
+              ? `Prefilled from your AI recommendation: ${farmCtx.farm.selectedCrop.displayName || farmCtx.farm.selectedCrop.crop}, sowing ${farmCtx.farm.selectedCrop.sowingDate}. Check the details, then press Plan My Season.`
+              : 'No crop has been selected for this farm yet — choose one below or get recommendations on My Farms.'}
+          </p>
+          {farmCtx.areaNote && <p className="mt-1 text-amber-700">{farmCtx.areaNote}</p>}
+          {!meta.crops.includes(form.crop) && (
+            <p className="mt-1 text-amber-700 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> {form.crop} has no crop-specific template yet — the calendar will use a generic 90–120-day plan.</p>
+          )}
+        </div>
+      )}
+
       {/* New plan form */}
       <form onSubmit={generate} className="card p-4 mb-5 flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-[160px]">
           <label className="text-[0.68rem] font-semibold text-[var(--color-text)] block mb-1">Crop</label>
           <select value={form.crop} onChange={e => setForm(f => ({ ...f, crop: e.target.value }))} className="input text-sm !py-2">
-            {meta.crops.map(c => <option key={c} value={c}>{c}</option>)}
+            {cropOptions.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div className="min-w-[160px]">
@@ -138,7 +193,7 @@ export default function Calendar() {
         </div>
         <div className="w-24">
           <label className="text-[0.68rem] font-semibold text-[var(--color-text)] block mb-1">Acres</label>
-          <input type="number" min="0.25" step="0.25" value={form.areaAcres} onChange={e => setForm(f => ({ ...f, areaAcres: e.target.value }))} className="input text-sm !py-2" />
+          <input type="number" min="0.01" step="any" required={!!farmCtx} value={form.areaAcres} onChange={e => setForm(f => ({ ...f, areaAcres: e.target.value }))} className="input text-sm !py-2" />
         </div>
         <button type="submit" disabled={busy} className="flex items-center gap-2 bg-[#15803d] hover:bg-[#166534] disabled:opacity-60 text-white font-bold text-sm px-4 py-2.5 rounded-xl transition-colors">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -152,7 +207,7 @@ export default function Calendar() {
           {plans.map(p => (
             <button key={p.id} onClick={() => setActiveId(p.id)}
               className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-full border transition-colors ${activeId === p.id ? 'bg-[#15803d] text-white border-[#15803d]' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-green-400'}`}>
-              <Sprout className="w-3.5 h-3.5" /> {p.crop} · {dayLabel(p.sowingDate)}
+              <Sprout className="w-3.5 h-3.5" /> {p.crop} · {dayLabel(p.sowingDate)}{p.farmId ? ` · ${p.farmName}` : ''}
             </button>
           ))}
         </div>
@@ -176,6 +231,7 @@ export default function Calendar() {
                   <h3 className="font-extrabold text-lg text-[var(--color-text)]">{active.crop} — {active.season} {new Date(active.sowingDate).getFullYear()}</h3>
                   <span className="badge badge-green capitalize">{active.season}</span>
                   <span className="badge badge-blue"><MapPin className="w-3 h-3" /> {active.areaAcres} acres</span>
+                  {active.farmId && <span className="badge badge-purple" data-testid="plan-farm-badge"><Warehouse className="w-3 h-3" /> {active.farmName}</span>}
                 </div>
                 <p className="text-[0.78rem] text-[var(--color-text-muted)] mt-1">
                   Sowing {dayLabel(active.sowingDate)} · Harvest {active.harvestWindow} · {doneCount}/{active.events.length} activities done
@@ -198,6 +254,9 @@ export default function Calendar() {
                 <Sparkles className="w-4 h-4 text-green-700 shrink-0 mt-0.5" /> {explanation}
               </p>
             )}
+            {warnings.map(w => (
+              <p key={w} className="text-[0.75rem] text-amber-700 mt-2 flex gap-2"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {w}</p>
+            ))}
           </div>
 
           {/* Timeline by month */}

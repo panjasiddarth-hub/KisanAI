@@ -1,13 +1,20 @@
 // src/agents/cropAgent.js — Crop Suggester: soil + pH + season + water → ranked crops
 import { CROPS, SOIL_TYPES, SEASONS } from '../data/crops.js';
 
+export const CROP_SUITABILITY_WEIGHTS = Object.freeze({
+  soil: 35,
+  ph: 20,
+  season: 30,
+  water: 15,
+});
+
 function scoreCrop(crop, input) {
   const reasons = [];
   let score = 0;
 
   // 1. Soil match (35)
   if (crop.soils.includes(input.soilType)) {
-    score += 35;
+    score += CROP_SUITABILITY_WEIGHTS.soil;
     reasons.push(`Thrives in ${label(input.soilType)} soil`);
   } else {
     reasons.push(`Not ideal for ${label(input.soilType)} soil`);
@@ -16,7 +23,7 @@ function scoreCrop(crop, input) {
   // 2. pH fit (20)
   const [lo, hi] = crop.ph;
   if (input.ph >= lo && input.ph <= hi) {
-    score += 20;
+    score += CROP_SUITABILITY_WEIGHTS.ph;
     reasons.push(`Your pH ${input.ph} is inside its optimal range (${lo}–${hi})`);
   } else {
     const dist = input.ph < lo ? lo - input.ph : input.ph - hi;
@@ -26,7 +33,7 @@ function scoreCrop(crop, input) {
 
   // 3. Season fit (30)
   if (crop.seasons.includes(input.season)) {
-    score += 30;
+    score += CROP_SUITABILITY_WEIGHTS.season;
     reasons.push(`Correct season — sown in ${label(input.season)}`);
   } else {
     reasons.push(`Normally grown in ${crop.seasons.map(label).join('/')}, not ${label(input.season)}`);
@@ -35,12 +42,12 @@ function scoreCrop(crop, input) {
   // 4. Water availability (15)
   const need = { low: 1, medium: 2, high: 3 }[crop.water];
   if (input.irrigation === 'irrigated') {
-    score += 15;
+    score += CROP_SUITABILITY_WEIGHTS.water;
     reasons.push(need === 3 ? 'Needs assured irrigation — you have it' : 'Water need easily met with irrigation');
   } else {
-    if (need === 1) { score += 15; reasons.push('Survives well on rainfall (drought-hardy)'); }
-    else if (need === 2) { score += 6; reasons.push('Moderate water need — risky under pure rainfed'); }
-    else { score -= 15; reasons.push('High water need — avoid without irrigation'); }
+    if (need === 1) { score += CROP_SUITABILITY_WEIGHTS.water; reasons.push('Survives well on rainfall (drought-hardy)'); }
+    else if (need === 2) { score += CROP_SUITABILITY_WEIGHTS.water * 0.4; reasons.push('Moderate water need — risky under pure rainfed'); }
+    else { score -= CROP_SUITABILITY_WEIGHTS.water; reasons.push('High water need — avoid without irrigation'); }
   }
 
   return { score: Math.round(Math.max(0, Math.min(100, score))), reasons };

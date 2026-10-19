@@ -8,7 +8,7 @@ const TIMEOUT_MS = 15000;
 export async function aiAnalyzeImage(crop, imagePath) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
-  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   try {
     const base64Image = fs.readFileSync(imagePath).toString('base64');
@@ -49,7 +49,7 @@ export async function aiAnalyzeImage(crop, imagePath) {
 export async function aiExplain(kind, structuredResult) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
-  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   const system = {
     crop: 'You are an Indian agronomist. In 3-4 short farmer-friendly sentences, explain this crop recommendation JSON. Mention the top crop, why it fits the soil/season/water, and one risk to watch. Plain English, no markdown.',

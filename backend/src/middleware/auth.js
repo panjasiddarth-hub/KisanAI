@@ -1,6 +1,6 @@
 // src/middleware/auth.js — JWT bearer auth
 import jwt from 'jsonwebtoken';
-import { users } from '../database/repositories/store.js';
+import { users } from '../repositories/store.js';
 
 const SECRET = () => process.env.JWT_SECRET || 'dev-secret-change-me';
 

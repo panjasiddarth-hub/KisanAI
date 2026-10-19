@@ -22,7 +22,7 @@ export function Footer() {
             <p className="mt-5 max-w-sm text-sm leading-relaxed text-mist/80">
               AI for Smarter Farming — Crop Recommendation, Soil & Fertiliser,
               Disease Detection, Weather Intelligence, Market Insights and
-              Government Schemes, in the farmer's own language.
+              Government Schemes, with the source of every answer shown.
             </p>
           </div>
 

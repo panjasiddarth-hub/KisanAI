@@ -135,6 +135,9 @@ export default function Dashboard() {
 
   return (
     <div className="page-content" style={{ maxWidth: '1440px' }}>
+      <div className="mb-4 p-3 rounded-xl bg-gray-100 dark:bg-slate-800 text-xs text-[var(--color-text)]" data-testid="sample-data-banner">
+        <b>Sample data.</b> The figures on this page are illustrative and do not come from your farms. Your own plot-level advice is in My Farm → a plot → Cultivation plan.
+      </div>
       {/* Greeting */}
       <div className="mb-5">
         <h1 className="text-2xl font-extrabold text-[var(--color-text)] tracking-tight">

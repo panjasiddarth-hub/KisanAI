@@ -69,7 +69,7 @@ export default function Login() {
 
         {/* Stats */}
         <div className="relative grid grid-cols-3 gap-4">
-          {[{ v: '10K+', l: 'Farmers' }, { v: '95%', l: 'Accuracy' }, { v: '24/7', l: 'AI Support' }].map(s => (
+          {[{ v: '18', l: 'Crops with agronomy rules' }, { v: '12', l: 'Soil card values used' }, { v: '22', l: 'Crops in the crop model' }].map(s => (
             <div key={s.l} className="text-center p-3 rounded-xl bg-white/10 backdrop-blur-sm">
               <p className="text-2xl font-bold text-white">{s.v}</p>
               <p className="text-green-200 text-xs">{s.l}</p>

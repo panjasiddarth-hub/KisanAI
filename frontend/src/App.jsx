@@ -10,24 +10,24 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 
 // Load pages on demand so the initial bundle stays small.
-const Landing = lazy(() => import('./components/landing/landing'));
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Farms = lazy(() => import('./pages/Farms'));
-const Crops = lazy(() => import('./pages/Crops'));
-const Weather = lazy(() => import('./pages/Weather'));
-const Disease = lazy(() => import('./pages/Disease'));
-const Irrigation = lazy(() => import('./pages/Irrigation'));
-const Market = lazy(() => import('./pages/Market'));
-const Schemes = lazy(() => import('./pages/Schemes'));
-const Analytics = lazy(() => import('./pages/Analytics'));
-const CropSuggester = lazy(() => import('./pages/CropSuggester'));
-const FertilizerAgent = lazy(() => import('./pages/FertilizerAgent'));
-const Calendar = lazy(() => import('./pages/Calendar'));
-const AIAssistant = lazy(() => import('./pages/AIAssistant'));
-const Notifications = lazy(() => import('./pages/Notifications'));
-const Profile = lazy(() => import('./pages/Profile'));
+const Landing = lazy(() => import('./pages/public/Landing'));
+const Login = lazy(() => import('./pages/auth/Login'));
+const Register = lazy(() => import('./pages/auth/Register'));
+const Dashboard = lazy(() => import('./pages/farm/Dashboard'));
+const Farms = lazy(() => import('./pages/farm/Farms'));
+const Crops = lazy(() => import('./pages/farm/Crops'));
+const Weather = lazy(() => import('./pages/insights/Weather'));
+const Disease = lazy(() => import('./pages/advisory/Disease'));
+const Irrigation = lazy(() => import('./pages/advisory/Irrigation'));
+const Market = lazy(() => import('./pages/insights/Market'));
+const Schemes = lazy(() => import('./pages/insights/Schemes'));
+const Analytics = lazy(() => import('./pages/insights/Analytics'));
+const CropSuggester = lazy(() => import('./pages/advisory/CropSuggester'));
+const FertilizerAgent = lazy(() => import('./pages/advisory/FertilizerAgent'));
+const Calendar = lazy(() => import('./pages/farm/Calendar'));
+const AIAssistant = lazy(() => import('./pages/advisory/AIAssistant'));
+const Notifications = lazy(() => import('./pages/account/Notifications'));
+const Profile = lazy(() => import('./pages/account/Profile'));
 
 export default function App() {
   return (

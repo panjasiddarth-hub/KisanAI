@@ -1,8 +1,12 @@
 // src/pages/FertilizerAgent.jsx — AI agent: crop + soil + area → NPK schedule
 import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { api, isOfflineError, apiErrorMessage } from '../api/client';
 import { FALLBACK_META } from '../api/fallback';
 import OfflineCard from '../components/ui/OfflineCard';
+import FarmPicker from '../components/farms/FarmPicker';
+import FarmFertilizerPlan from '../components/farms/FarmFertilizerPlan';
+import { useFarms, useFarmParam } from '../hooks/useFarms';
 import {
   FlaskConical, Loader2, Sparkles, AlertTriangle, Leaf, PackageOpen
 } from 'lucide-react';
@@ -17,6 +21,12 @@ export default function FertilizerAgent() {
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
   const [plan, setPlan] = useState(null);
+  const navigate = useNavigate();
+  const { farms, loading: farmsLoading } = useFarms();
+  const [farmId, setFarmId] = useFarmParam(farms);
+  const [tab, setTab] = useState(null); // null → "farm" when the farmer has farms, else "calculator"
+  const mode = tab || (farms.length ? 'farm' : 'calculator');
+  const farm = farms.find((f) => f.id === farmId);
 
   useEffect(() => {
     api.get('/agents/meta').then(r => setMeta(r.data)).catch(() => {});
@@ -50,6 +60,28 @@ export default function FertilizerAgent() {
         <p className="text-sm text-[var(--color-text-muted)] mt-1">Works out the exact N-P-K dose and stage-wise schedule for your crop and acreage.</p>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="inline-flex rounded-xl border border-[var(--color-border)] p-0.5 text-xs font-semibold" role="tablist">
+          {[['farm', 'For my farm'], ['calculator', 'Quick calculator']].map(([key, label]) => (
+            <button key={key} type="button" role="tab" aria-selected={mode === key} onClick={() => setTab(key)} data-testid={`fert-tab-${key}`}
+              className={`px-3 py-1.5 rounded-lg transition-colors ${mode === key ? 'bg-green-600 text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {mode === 'farm' && farms.length > 0 && <FarmPicker farms={farms} value={farmId} onChange={setFarmId} testid="fert-farm-picker" />}
+      </div>
+
+      {mode === 'farm' && (
+        farmsLoading ? <div className="skeleton h-40 rounded-xl" />
+          : !farm ? (
+            <div className="card p-6 text-sm text-[var(--color-text-muted)]" data-testid="fert-no-farms">
+              No saved farms yet. <Link to="/farms" className="text-green-700 dark:text-green-400 font-semibold underline">Add a farm</Link> with its soil test to get a plan for it, or use the quick calculator.
+            </div>
+          ) : <FarmFertilizerPlan key={farm.id} farm={farm} crops={meta.crops} onEditFarm={() => navigate('/farms')} />
+      )}
+
+      {mode === 'calculator' && (
       <div className="grid grid-cols-1 lg:grid-cols-[380px_minmax(0,1fr)] gap-5 items-start">
         <form onSubmit={submit} className="card p-5 space-y-4">
           <div>
@@ -160,6 +192,7 @@ export default function FertilizerAgent() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

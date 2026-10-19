@@ -10,6 +10,8 @@ import {
 import toast from 'react-hot-toast';
 
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+// Share of the disease's signature symptoms the farmer reported (rule-based overlap, not a probability).
+const matchPct = (d) => Math.round((d.symptomMatch.matched / d.symptomMatch.signature) * 100);
 const confColor = (c) => (c >= 70 ? 'text-red-500' : c >= 40 ? 'text-amber-500' : 'text-slate-400');
 const confBar = (c) => (c >= 70 ? 'from-red-500 to-orange-500' : c >= 40 ? 'from-amber-400 to-yellow-500' : 'from-slate-400 to-slate-500');
 
@@ -97,7 +99,7 @@ export default function Disease() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-[var(--color-text)] block mb-1.5">Leaf photo <span className="text-[var(--color-text-muted)] font-normal">(optional — beta visual triage)</span></label>
+            <label className="text-xs font-semibold text-[var(--color-text)] block mb-1.5">Leaf photo <span className="text-[var(--color-text-muted)] font-normal">(optional — saved privately, not analysed)</span></label>
             {preview ? (
               <div className="relative inline-block">
                 <img src={preview} alt="Leaf sample" className="w-28 h-28 object-cover rounded-xl border border-[var(--color-border)]" />
@@ -106,10 +108,14 @@ export default function Disease() {
             ) : (
               <label className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-[var(--color-border)] rounded-xl py-5 cursor-pointer hover:border-green-400 transition-colors">
                 <UploadCloud className="w-6 h-6 text-[var(--color-text-muted)]" />
-                <span className="text-[0.7rem] text-[var(--color-text-muted)]">Click to upload JPG/PNG (max 5 MB)</span>
-                <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+                <span className="text-[0.7rem] text-[var(--color-text-muted)]">Attach a JPG, PNG or WebP (max 5 MB) for your records</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFile} />
               </label>
             )}
+            <p className="mt-2 text-[0.68rem] text-amber-700 dark:text-amber-300 flex gap-1.5" data-testid="photo-unavailable">
+              <ImageIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              Photo diagnosis is unavailable — no trained plant-disease image model is installed. The diagnosis uses only the symptoms you tick.
+            </p>
           </div>
 
           <button type="submit" disabled={busy} className="w-full flex items-center justify-center gap-2 bg-[#15803d] hover:bg-[#166534] disabled:opacity-60 text-white font-bold text-sm py-3 rounded-xl transition-colors">
@@ -124,7 +130,7 @@ export default function Disease() {
           {!offline && !result && (
             <div className="card p-8 text-center text-sm text-[var(--color-text-muted)]">
               <Stethoscope className="w-10 h-10 mx-auto mb-3 text-red-300" />
-              Pick the crop, tick the symptoms you see, optionally attach a photo, then press <b>Diagnose</b>.
+              Pick the crop and tick the symptoms you see, then press <b>Diagnose</b>. Results are a symptom match against the knowledge base — photos are not analysed.
             </div>
           )}
           {result && (
@@ -139,9 +145,16 @@ export default function Disease() {
                     </span>
                   </div>
                   <p className="text-[0.82rem] text-[var(--color-text)] leading-relaxed mt-1.5">{result.explanation}</p>
-                  {result.photoAnalysis && (
-                    <p className="text-[0.72rem] text-indigo-600 dark:text-indigo-400 mt-2 flex gap-1.5"><ImageIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {result.photoAnalysis}</p>
+                  {result.method && <p className="text-[0.68rem] text-[var(--color-text-muted)] mt-2" data-testid="disease-method">{result.method}</p>}
+                  {result.photo?.received && (
+                    <p className="text-[0.72rem] text-amber-700 dark:text-amber-300 mt-2 flex gap-1.5" data-testid="photo-status">
+                      <ImageIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Photo {result.photo.stored ? 'saved privately' : 'received'} — not analysed. {result.photo.reason}
+                    </p>
                   )}
+                  {result.photo?.externalDescription && (
+                    <p className="text-[0.72rem] text-[var(--color-text-muted)] mt-2"><b>External AI description (Gemini, not validated, not used in the diagnosis):</b> {result.photo.externalDescription.text}</p>
+                  )}
+                  {result.noMatch && <p className="text-[0.72rem] text-[var(--color-text)] mt-2">No disease in the knowledge base matches these symptoms.</p>}
                 </div>
               </div>
 
@@ -153,12 +166,12 @@ export default function Disease() {
                       <p className="text-[0.7rem] text-[var(--color-text-muted)] mt-0.5">{d.pathogen}</p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-2xl font-extrabold ${confColor(d.confidence)}`}>{d.confidence}%</p>
-                      <p className="text-[0.62rem] text-[var(--color-text-muted)]">confidence</p>
+                      <p className={`text-2xl font-extrabold ${confColor(matchPct(d))}`} data-testid="symptom-match">{d.symptomMatch.matched}/{d.symptomMatch.signature}</p>
+                      <p className="text-[0.62rem] text-[var(--color-text-muted)]">signature symptoms matched</p>
                     </div>
                   </div>
                   <div className="mt-2 h-2 rounded-full bg-gray-100 dark:bg-slate-700 overflow-hidden">
-                    <div className={`h-full rounded-full bg-gradient-to-r ${confBar(d.confidence)}`} style={{ width: `${d.confidence}%` }} />
+                    <div className={`h-full rounded-full bg-gradient-to-r ${confBar(matchPct(d))}`} style={{ width: `${matchPct(d)}%` }} />
                   </div>
 
                   {d.matchedSymptoms.length > 0 && (

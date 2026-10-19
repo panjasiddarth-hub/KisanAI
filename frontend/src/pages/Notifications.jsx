@@ -13,7 +13,7 @@ const TYPE_META = {
 };
 
 export default function Notifications() {
-  const { notifications, unreadCount, markRead, markAllRead, dismiss } = useNotifications();
+  const { notifications, unreadCount, markRead, markAllRead, dismiss, available, reason } = useNotifications();
 
   return (
     <div className="page-content" style={{ maxWidth: '860px' }}>
@@ -21,7 +21,7 @@ export default function Notifications() {
         <div>
           <h2 className="text-xl font-extrabold text-[var(--color-text)]">Notifications</h2>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
-            {unreadCount > 0 ? `${unreadCount} unread update${unreadCount > 1 ? 's' : ''} from your farm agents` : 'You are all caught up!'}
+            {!available ? 'Not available yet' : unreadCount > 0 ? `${unreadCount} unread update${unreadCount > 1 ? 's' : ''} from your farm agents` : 'You are all caught up!'}
           </p>
         </div>
         {unreadCount > 0 && (
@@ -35,7 +35,7 @@ export default function Notifications() {
       </div>
 
       {notifications.length === 0 ? (
-        <EmptyState icon={Bell} title="No notifications" description="Alerts from weather, market and crop agents will appear here." />
+        <div data-testid="notifications-unavailable"><EmptyState icon={Bell} title={available ? 'No notifications' : 'Notifications are not available yet'} description={available ? 'Alerts from weather, market and crop agents will appear here.' : reason} /></div>
       ) : (
         <div className="card overflow-hidden">
           {notifications.map((n, i) => {
