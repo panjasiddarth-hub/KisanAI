@@ -1,8 +1,8 @@
 // src/pages/Farms.jsx
 // Farm management — list, add, edit, delete
 
-import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useFarms } from '../hooks/useFarms';
 import { useAuth } from '../context/AuthContext';
 import { useForm } from 'react-hook-form';
@@ -568,11 +568,22 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
 
 export default function Farms() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { farms, loading, addFarm, updateFarm, deleteFarm } = useFarms();
   const [showAdd, setShowAdd] = useState(false);
   const [editFarm, setEditFarm] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const requestedEditFarmId = location.state?.editFarmId;
+
+  useEffect(() => {
+    if (loading || !requestedEditFarmId) return;
+    const requestedFarm = farms.find((farm) => farm.id === requestedEditFarmId);
+    if (requestedFarm) {
+      setEditFarm(requestedFarm);
+      navigate('/farms', { replace: true, state: null });
+    }
+  }, [farms, loading, navigate, requestedEditFarmId]);
 
   const handleAdd = async (data) => {
     setSubmitting(true);

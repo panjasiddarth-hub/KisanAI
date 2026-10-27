@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, FlaskConical, Loader2, MapPin, Sprout } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import { apiErrorMessage } from '../api/client';
@@ -8,6 +8,29 @@ import { runFarmAssessment } from '../api/farmAssessment';
 import { useFarms } from '../hooks/useFarms';
 
 const EMPTY_ENVIRONMENT = { temperature: '', humidity: '', rainfall: '' };
+const INPUT_LABELS = {
+  pH: 'Soil pH (unitless)',
+  EC_dS_per_m: 'Electrical conductivity (dS/m)',
+  OC_percent: 'Organic carbon (%)',
+  N_kg_per_ha: 'Nitrogen (N, kg/ha)',
+  P_kg_per_ha: 'Phosphorus (P, kg/ha)',
+  K_kg_per_ha: 'Potassium (K, kg/ha)',
+  S_ppm: 'Sulphur (S, ppm)',
+  Zn_ppm: 'Zinc (Zn, ppm)',
+  B_ppm: 'Boron (B, ppm)',
+  Fe_ppm: 'Iron (Fe, ppm)',
+  Cu_ppm: 'Copper (Cu, ppm)',
+  Mn_ppm: 'Manganese (Mn, ppm)',
+  Soil_Type: 'Supported soil type',
+  Season: 'Growing season',
+  N: 'Nitrogen (N)',
+  P: 'Phosphorus (P)',
+  K: 'Potassium (K)',
+  ph: 'Soil pH',
+  temperature: 'Temperature (°C)',
+  humidity: 'Humidity (%)',
+  rainfall: 'Rainfall (mm)',
+};
 const WEATHER_LOCATION = (farm) => {
   if (farm?.village && farm?.district && farm?.state) return `${farm.village}, ${farm.district}, ${farm.state}`;
   if (farm?.village && farm?.state) return `${farm.village}, ${farm.state}`;
@@ -25,7 +48,8 @@ function StatusBadge({ status }) {
   return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status === 'completed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200' : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'}`}>{labels[status] || status}</span>;
 }
 
-function AgentResult({ agent, item }) {
+function AgentResult({ agent, item, farmId }) {
+  const navigate = useNavigate();
   const crop = agent === 'crop';
   const title = crop ? 'Crop model' : 'Soil nutrient model';
   const Icon = crop ? Sprout : FlaskConical;
@@ -52,8 +76,9 @@ function AgentResult({ agent, item }) {
       {item.explanation?.contextReview?.modelInputs && <details className="mt-3 text-xs text-[var(--color-text-muted)]"><summary className="cursor-pointer font-semibold">Review model inputs and their sources</summary><ul className="mt-2 space-y-1">{item.explanation.contextReview.modelInputs.map((input) => <li key={input.field}><b>{input.field}:</b> {input.value ?? 'missing'} · {input.source}</li>)}</ul></details>}
       {item.explanation?.inputs?.length > 0 && <details className="mt-3 text-xs text-[var(--color-text-muted)]"><summary className="cursor-pointer font-semibold">Review soil model inputs and their sources</summary><ul className="mt-2 space-y-1">{item.explanation.inputs.map((input) => <li key={input.field}><b>{input.field}:</b> {input.value} · {input.source}</li>)}</ul><p className="mt-2">These are the values submitted to the model; they do not explain which reading caused an individual rating.</p></details>}
       {item.status === 'needs_input' && <>
-        <p className="mt-3 text-sm text-[var(--color-text-muted)]">{item.message}</p>
-        <ul className="mt-2 list-inside list-disc text-sm">{item.missingInputs?.map((field) => <li key={field}>{field}</li>)}</ul>
+        <p className="mt-3 text-sm text-[var(--color-text-muted)]">{agent === 'fertilizer' ? 'Check your soil-test report for these readings. KisanAI will not estimate missing values.' : item.message}</p>
+        <ul className="mt-2 list-inside list-disc text-sm">{item.missingInputs?.map((field) => <li key={field}>{INPUT_LABELS[field] || field}</li>)}</ul>
+        {agent === 'fertilizer' && farmId && <button type="button" onClick={() => navigate('/farms', { state: { editFarmId: farmId } })} className="mt-3 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40">Update this farm’s soil details</button>}
       </>}
       {(item.status === 'failed' || item.status === 'needs_review') && <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-300">{item.error || item.issues?.join('; ')}</p>}
     </section>
@@ -172,7 +197,7 @@ export default function FarmAssessment() {
           <p className="mt-2 text-xs text-[var(--color-text-muted)]">Validation status: {assessment.orchestration?.validation?.status}. These checks catch missing or inconsistent data; they do not prove agronomic correctness.</p>
           <details className="mt-3 text-xs text-[var(--color-text-muted)]"><summary className="cursor-pointer font-semibold">Review validation checks</summary><ul className="mt-2 space-y-2">{assessment.orchestration?.validation?.checks?.map((check) => <li key={`${check.agent}-${check.status}`}><b className="capitalize">{check.agent}:</b> {check.status}{check.issues?.length ? ` — ${check.issues.join('; ')}` : ''}{check.message ? ` — ${check.message}` : ''}</li>)}</ul></details>
         </section>
-        {Object.entries(assessment.agents || {}).map(([agent, item]) => <AgentResult key={agent} agent={agent} item={item} />)}
+        {Object.entries(assessment.agents || {}).map(([agent, item]) => <AgentResult key={agent} agent={agent} item={item} farmId={farm?.id} />)}
         <p className="text-xs text-[var(--color-text-muted)]">Market forecast is not included in this farm run because the profile does not contain verified recent mandi price history. Disease photo screening runs separately and does not use the farm profile as an image diagnosis.</p>
       </div>}
     </div>
