@@ -22,7 +22,11 @@ export default function Market() {
     return () => { mounted = false; };
   }, []);
 
-  const forecasts = marketData?.prices || [];
+  const reportedForecasts = marketData?.prices || [];
+  const forecasts = reportedForecasts.filter((item) =>
+    typeof item.price === 'number' && Number.isFinite(item.price) && item.price > 0,
+  );
+  const rejectedCount = reportedForecasts.length - forecasts.length;
   const selectedForecast = forecasts.find((item) => item.crop === selected) || forecasts[0] || null;
 
   return (
@@ -37,9 +41,14 @@ export default function Market() {
       {loading ? (
         <div className="card p-10 flex items-center justify-center gap-2 text-sm text-[var(--color-text-muted)]"><Loader2 className="w-4 h-4 animate-spin" />Loading model forecasts…</div>
       ) : forecasts.length === 0 ? (
-        <div className="card p-8 text-center text-sm text-[var(--color-text-muted)]">No market forecasts are available. Check that the backend and ML service are running.</div>
+        <div className="card p-8 text-center">
+          <h2 className="font-bold text-[var(--color-text)]">Market model unavailable</h2>
+          <p className="mx-auto mt-2 max-w-2xl text-sm text-[var(--color-text-muted)]">The model did not return a valid positive price for the sample inputs, so KisanAI is withholding the estimates. Check current prices with your local mandi; do not use this model for a selling decision.</p>
+          {reportedForecasts.length > 0 && <p className="mt-3 text-xs text-amber-800 dark:text-amber-300">Rejected {reportedForecasts.length} invalid sample result{reportedForecasts.length === 1 ? '' : 's'}.</p>}
+        </div>
       ) : (
         <>
+          {rejectedCount > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">{rejectedCount} invalid model result{rejectedCount === 1 ? ' was' : 's were'} withheld. Remaining prices are sample-based demonstration outputs, not live mandi quotes.</div>}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
             <div className="lg:col-span-2 card p-5">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
