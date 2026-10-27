@@ -1,14 +1,10 @@
 // src/context/AuthContext.jsx
-// Authentication via the KisanAI backend API, with an offline demo fallback
-// so the UI still demos when the server isn't running (e.g. static preview).
+// Authentication is always verified by the KisanAI backend API.
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, isOfflineError, apiErrorMessage } from '../api/client';
 
 const AuthContext = createContext(null);
-
-// Offline demo account (mirrors the backend's seeded user)
-const DEMO_USER = { email: 'siddarth@kisan.com', password: 'password123', profile: { id: 'demo-1', name: 'Siddarth R.', email: 'siddarth@kisan.com', role: 'farmer', avatar: null, phone: '+91 98491 23456', location: 'Warangal, Telangana' } };
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -32,50 +28,64 @@ export function AuthProvider({ children }) {
       setToken(savedToken);
       api.get('/auth/me')
         .then(r => { setUser(r.data.user); try { localStorage.setItem('kisan_user', JSON.stringify(r.data.user)); } catch {} })
-        .catch(err => { if (err?.response?.status === 401) persist(null, null); /* stale token on fresh backend */ });
+        .catch(() => persist(null, null));
     }
     setLoading(false);
   }, []);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (identifier, password) => {
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/login', { email, password });
+      const { data } = await api.post('/auth/login', { identifier, password });
       persist(data.user, data.token);
       return { success: true };
     } catch (err) {
-      if (isOfflineError(err)) {
-        // Offline fallback — demo account only
-        if (import.meta.env.DEV && email === DEMO_USER.email && password === DEMO_USER.password) {
-          persist(DEMO_USER.profile, btoa(`demo:${Date.now()}`));
-          return { success: true, offline: true };
-        }
-        return {
-          success: false,
-          error: import.meta.env.DEV
-            ? 'Backend is offline. Start it with "cd backend && npm start", or use the local demo login.'
-            : 'Sign-in service is unavailable. Please try again later.',
-        };
-      }
+      if (isOfflineError(err)) return { success: false, error: 'Sign-in service is unavailable. Start the backend and try again.' };
       return { success: false, error: apiErrorMessage(err, 'Login failed') };
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const register = useCallback(async (name, email, password) => {
-    setLoading(true);
+  const register = useCallback(async (name, contactType, contact, password) => {
     try {
-      const { data } = await api.post('/auth/register', { name, email, password });
-      persist(data.user, data.token);
-      return { success: true };
+      const { data } = await api.post('/auth/register', { name, contactType, contact, password });
+      return { success: true, pending: true, message: data.message };
     } catch (err) {
       if (isOfflineError(err)) {
         return { success: false, error: 'Backend is offline — registration needs the API running (cd backend && npm start).' };
       }
       return { success: false, error: apiErrorMessage(err, 'Registration failed') };
-    } finally {
-      setLoading(false);
+    }
+  }, []);
+
+  const verifySignupOtp = useCallback(async (contactType, contact, code) => {
+    setLoading(true);
+    try {
+      const { data } = await api.post('/auth/verify-otp', { contactType, contact, code });
+      persist(data.user, data.token);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: apiErrorMessage(err, 'Verification failed') };
+    } finally { setLoading(false); }
+  }, []);
+
+  const requestPasswordReset = useCallback(async (contactType, contact) => {
+    try {
+      const { data } = await api.post('/auth/forgot-password', { contactType, contact });
+      return { success: true, message: data.message };
+    } catch (err) {
+      return { success: false, error: apiErrorMessage(err, 'Could not request a reset code') };
+    }
+  }, []);
+
+  const resetPassword = useCallback(async (contactType, contact, code, newPassword) => {
+    try {
+      const { data } = await api.post('/auth/reset-password', { contactType, contact, code, newPassword });
+      persist(null, null);
+      return { success: true, message: data.message };
+    } catch (err) {
+      return { success: false, error: apiErrorMessage(err, 'Password could not be reset') };
     }
   }, []);
 
@@ -89,9 +99,9 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const deleteAccount = useCallback(async (password, confirmEmail) => {
+  const deleteAccount = useCallback(async (password, confirmContact) => {
     try {
-      const { data } = await api.delete('/auth/account', { data: { password, confirmEmail } });
+      const { data } = await api.delete('/auth/account', { data: { password, confirmContact } });
       persist(null, null);
       return { success: true, deleted: data.deleted };
     } catch (err) {
@@ -117,7 +127,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, changePassword, deleteAccount, logout, updateProfile, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, verifySignupOtp, requestPasswordReset, resetPassword, changePassword, deleteAccount, logout, updateProfile, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

@@ -13,6 +13,7 @@ export async function connectDB({ connect = (uri, options) => mongoose.connect(u
     await connect(uri, {
       serverSelectionTimeoutMS: 15000,
       connectTimeoutMS: 15000,
+      autoIndex: false,
     });
     globalThis.__DB_MODE__ = 'mongodb';
     console.log('✅ Connected to MongoDB Atlas');

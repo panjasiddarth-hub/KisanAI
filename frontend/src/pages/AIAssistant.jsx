@@ -13,15 +13,17 @@ const LANGUAGES = [
 ];
 
 const SUGGESTIONS = [
-  'How do I improve soil health?',
-  'What information should I use to choose a crop?',
-  'What should I verify before selling a crop?',
+  'What does a Soil Health Card tell me?',
+  'How do I check PM-KISAN status?',
+  'How can I register as a farmer on e-NAM?',
+  'What should I verify about crop insurance?',
 ];
 
 const OFFICIAL_REFERENCES = [
   { label: 'PM-KISAN', url: 'https://pmkisan.gov.in/' },
-  { label: 'Kisan Credit Card eligibility', url: 'https://fasalrin.gov.in/eligibility' },
   { label: 'Soil Health Card Portal', url: 'https://soilhealth.dac.gov.in/' },
+  { label: 'e-NAM farmer information', url: 'https://www.enam.gov.in/web/stakeholders-Involved/farmers' },
+  { label: 'PMFBY crop insurance', url: 'https://pmfby.gov.in/faq' },
 ];
 
 function Message({ message, onSpeak }) {
@@ -39,7 +41,12 @@ function Message({ message, onSpeak }) {
           <details className="text-xs text-[var(--color-text-muted)]">
             <summary className="cursor-pointer">Sources ({message.sources.length})</summary>
             <ul className="list-disc pl-5 mt-1 space-y-1">
-              {message.sources.map((source, index) => <li key={index}>{source.title || source.source || `Reference ${index + 1}`}</li>)}
+              {message.sources.map((source, index) => <li key={source.id || index}>
+                {source.url ? <a href={source.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 underline dark:text-emerald-400">{source.title || source.source || `Reference ${index + 1}`}</a> : (source.title || source.source || `Reference ${index + 1}`)}
+                {source.publisher && <span> · {source.publisher}</span>}
+                {source.checkedDate && <span> · source checked {source.checkedDate}</span>}
+                {source.text && <p className="mt-1 leading-relaxed">{source.text}</p>}
+              </li>)}
             </ul>
           </details>
         )}
@@ -58,6 +65,7 @@ export default function AIAssistant() {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
   const [knowledgeAssistantAvailable, setKnowledgeAssistantAvailable] = useState(false);
+  const [knowledgeAssistantStatus, setKnowledgeAssistantStatus] = useState('Checking the local retrieval service…');
   const bottomRef = useRef(null);
   const recognitionRef = useRef(null);
 
@@ -66,8 +74,16 @@ export default function AIAssistant() {
   useEffect(() => {
     let active = true;
     api.get('/agents/meta')
-      .then(({ data }) => { if (active) setKnowledgeAssistantAvailable(data.knowledgeAssistantAvailable === true); })
-      .catch(() => { if (active) setKnowledgeAssistantAvailable(false); });
+      .then(({ data }) => {
+        if (!active) return;
+        setKnowledgeAssistantAvailable(data.knowledgeAssistantAvailable === true);
+        setKnowledgeAssistantStatus(data.knowledgeAssistantStatus || 'The local retrieval service is unavailable.');
+      })
+      .catch(() => {
+        if (!active) return;
+        setKnowledgeAssistantAvailable(false);
+        setKnowledgeAssistantStatus('Could not check the local retrieval service.');
+      });
     return () => { active = false; };
   }, []);
 
@@ -135,11 +151,11 @@ export default function AIAssistant() {
 
   return (
     <div className="page-content">
-      <PageHeader title="KisanAI Assistant" subtitle={knowledgeAssistantAvailable ? 'Answers based on verified reference documents, with browser speech tools' : 'Knowledge assistant paused while its source documents are verified'} />
+      <PageHeader title="KisanAI Assistant" subtitle={knowledgeAssistantAvailable ? 'Answers grounded in reviewed official agriculture sources, with browser speech tools' : 'Knowledge assistant paused while its source documents are verified'} />
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-[var(--color-border)]">
           <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center"><Bot className="w-5 h-5 text-white" /></div>
-          <div className="mr-auto"><p className="font-bold text-sm">Farm knowledge assistant</p><p className="text-xs text-[var(--color-text-muted)]">{knowledgeAssistantAvailable ? 'Disease diagnosis is unavailable. Verify important advice with current official sources.' : 'Replies are paused because the bundled reference documents have no verified provenance or publication date.'}</p></div>
+          <div className="mr-auto"><p className="font-bold text-sm">Farm knowledge assistant</p><p className="text-xs text-[var(--color-text-muted)]">{knowledgeAssistantAvailable ? `${knowledgeAssistantStatus} Open source links to confirm current rules. Disease diagnosis is unavailable here.` : knowledgeAssistantStatus}</p></div>
           <label className="text-xs flex items-center gap-2">Language
             <select className="input py-1" value={language.code} onChange={(event) => setLanguage(LANGUAGES.find((item) => item.code === event.target.value) || LANGUAGES[0])}>
               {LANGUAGES.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
@@ -150,7 +166,7 @@ export default function AIAssistant() {
         </div>
 
         <div className="h-[26rem] overflow-y-auto p-5 space-y-4 bg-gray-50/50 dark:bg-slate-800/20">
-          {messages.length === 0 && <div className="max-w-xl mx-auto text-center py-10"><Bot className="w-10 h-10 mx-auto mb-3 text-indigo-500" /><p className="font-semibold">{knowledgeAssistantAvailable ? 'Ask a farming question' : 'Assistant replies are temporarily paused'}</p><p className="text-sm text-[var(--color-text-muted)] mt-1">{knowledgeAssistantAvailable ? 'Model predictions remain in their dedicated crop, soil, and market tools.' : 'Use these official portals for current scheme information while the knowledge sources are being verified.'}</p>{!knowledgeAssistantAvailable && <ul className="mt-4 flex flex-wrap justify-center gap-3">{OFFICIAL_REFERENCES.map(reference => <li key={reference.url}><a className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-400" href={reference.url} target="_blank" rel="noopener noreferrer">{reference.label}</a></li>)}</ul>}</div>}
+          {messages.length === 0 && <div className="max-w-xl mx-auto text-center py-10"><Bot className="w-10 h-10 mx-auto mb-3 text-indigo-500" /><p className="font-semibold">{knowledgeAssistantAvailable ? 'Ask a farming question' : 'Assistant replies are temporarily paused'}</p><p className="text-sm text-[var(--color-text-muted)] mt-1">{knowledgeAssistantAvailable ? 'Ask about Soil Health Cards, PM-KISAN, e-NAM, or crop insurance. Model predictions remain in their dedicated tools.' : 'Use these official portals for current scheme information while the knowledge source is unavailable.'}</p>{!knowledgeAssistantAvailable && <ul className="mt-4 flex flex-wrap justify-center gap-3">{OFFICIAL_REFERENCES.map(reference => <li key={reference.url}><a className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-400" href={reference.url} target="_blank" rel="noopener noreferrer">{reference.label}</a></li>)}</ul>}</div>}
           {messages.map((message, index) => <Message key={index} message={message} onSpeak={speak} />)}
           {loading && <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]"><Loader2 className="w-4 h-4 animate-spin" />Retrieving sources and preparing an answer…</div>}
           <div ref={bottomRef} />

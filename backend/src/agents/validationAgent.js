@@ -184,6 +184,25 @@ function inspectResult(agent, result) {
   }
   if (agent === 'rag' && !Array.isArray(result.results)) {
     problems.push('Knowledge retrieval result is missing its document list');
+  } else if (agent === 'rag') {
+    if (result.results.length > 10) problems.push('Knowledge retrieval returned too many documents');
+    result.results.forEach((source, index) => {
+      const label = `Retrieved source ${index + 1}`;
+      if (!source || typeof source !== 'object' || !source.title || !source.publisher || !source.text) {
+        problems.push(`${label} is missing its title, publisher, or excerpt`);
+        return;
+      }
+      try {
+        const url = new URL(source.url);
+        if (url.protocol !== 'https:' || !(url.hostname.endsWith('.gov.in') || url.hostname.endsWith('.nic.in'))) {
+          problems.push(`${label} must link to an official HTTPS government source`);
+        }
+      } catch {
+        problems.push(`${label} has an invalid source URL`);
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(source.checkedDate || '')) problems.push(`${label} is missing its source review date`);
+      if (!Number.isFinite(source.score) || source.score < 0 || source.score > 1) problems.push(`${label} has an invalid retrieval score`);
+    });
   }
   return problems;
 }

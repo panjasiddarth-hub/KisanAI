@@ -34,28 +34,29 @@
     {
       "id": "market_price_forecast",
       "files": [
-        {"path": "market_forecasting_model.pkl", "sha256": "fb7b8155292ccb6da1ddc5408bd5c55fc8025c806eea911fd88ff24a03261a6f"},
+        {"path": "market_forecasting_model.json", "sha256": "535bc44daa4b97198ee114bfcc261b3f056bdf27c2d9f2292fa61378c2a54260"},
         {"path": "market_encoder.pkl", "sha256": "add9cd9608d73e122c2e23ac2c40d5b1e8dd9e50e57bbe6ed5eca3194c601fd9"}
       ],
-      "format": "XGBoost regressor plus scikit-learn OneHotEncoder",
+      "format": "XGBoost native JSON booster plus scikit-learn OneHotEncoder",
       "input_features": ["lag_1", "lag_2", "lag_3", "rolling_mean_3", "rolling_std_3", "month", "day_of_year", "Commodity", "Market", "State"],
       "target": "predicted_price; currency and weight/quantity unit are undocumented",
       "training_dataset": null,
       "training_date": null,
       "evaluation_metrics": null,
-      "known_gaps": ["Price source, currency, quantity unit, and forecast horizon are undocumented", "Training data date range and evaluation results are undocumented", "XGBoost serialization version is undocumented"]
+      "booster_runtime_version_verified": "3.2.0 (native JSON booster loaded under pinned XGBoost runtime)",
+      "objective": "reg:squarederror",
+      "known_gaps": ["Price source, currency, quantity unit, and forecast horizon are undocumented", "Training data date range and evaluation results are undocumented", "The original pickle is retained as an unused rollback artifact; predictions from native JSON must be treated as a serialization conversion, not evidence of model quality"]
     },
     {
       "id": "agriculture_knowledge_retrieval",
       "files": [
-        {"path": "kisanai_faiss.index", "sha256": "1ca12377bba847beca4a77ceedeca399bd507f0d86c44c287693ab0ca5e350e4"},
-        {"path": "kisanai_chunks.pkl", "sha256": "9d01846837515950efefcb9d39c327784e577944f11c7072df4bb0ad314acf94"}
+        {"path": "rag_corpus.json", "sha256": "F6874B842BAEDC7D5BC6C5F613FEB6269BE2CCE84C62AB7838B3F875ECE65C20"}
       ],
-      "format": "FAISS vector index and serialized text chunks",
-      "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
-      "corpus_source": "kisanai_chunks.pkl contains 55 chunks from /content/crop_dataset/government_schemes_dataset.csv; source provenance and publication date are unverified",
-      "corpus_date": null,
-      "known_gaps": ["Document sources, publication dates, coverage, and chunking provenance are undocumented"]
+      "format": "Reviewed JSON source summaries searched with scikit-learn TF-IDF",
+      "retrieval_method": "local TF-IDF lexical similarity with a minimum relevance threshold",
+      "corpus_source": "Official Soil Health Card, PM-KISAN, e-NAM, and PMFBY government pages; every entry carries a source URL and checkedDate",
+      "corpus_date": "2026-10-27",
+      "known_gaps": ["English-only starter corpus with limited subject coverage", "Source publication dates are not consistently displayed; source review dates are recorded separately"]
     }
   ],
   "disease_model": {

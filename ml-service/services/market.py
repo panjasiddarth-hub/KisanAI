@@ -2,12 +2,17 @@ from pathlib import Path
 import math
 import joblib
 import pandas as pd
+import xgboost as xgb
+
+
+class InvalidMarketForecastError(RuntimeError):
+    """Raised when the model returns a price that cannot be shown safely."""
 
 
 MODEL_PATH = (
     Path(__file__).resolve().parent.parent
     / "models"
-    / "market_forecasting_model.pkl"
+    / "market_forecasting_model.json"
 )
 
 ENCODER_PATH = (
@@ -16,7 +21,8 @@ ENCODER_PATH = (
     / "market_encoder.pkl"
 )
 
-model = joblib.load(MODEL_PATH)
+model = xgb.Booster()
+model.load_model(MODEL_PATH)
 encoder = joblib.load(ENCODER_PATH)
 
 
@@ -73,12 +79,12 @@ def predict_market(data: dict):
 
     # Force exact training feature order
     model_input = model_input[
-        list(model.feature_names_in_)
+        list(model.feature_names)
     ]
 
-    prediction = float(model.predict(model_input)[0])
+    prediction = float(model.predict(xgb.DMatrix(model_input))[0])
     if not math.isfinite(prediction) or prediction <= 0:
-        raise ValueError("Market model returned an invalid price prediction")
+        raise InvalidMarketForecastError("The market model did not produce a valid price forecast.")
 
     return {
         "predicted_price": round(prediction, 2),

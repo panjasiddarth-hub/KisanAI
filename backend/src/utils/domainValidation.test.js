@@ -13,6 +13,15 @@ test('validates and normalizes farm measurements and optional soil values', () =
   assert.equal(result.data.soilN, null);
 });
 
+test('accepts optional map coordinates and rejects out-of-range farm pins', () => {
+  const valid = validateFarmPayload({ name: 'Mapped Farm', location: 'Village, State', area: 2, latitude: '17.385', longitude: '78.4867' });
+  assert.deepEqual(valid.errors, []);
+  assert.equal(valid.data.latitude, 17.385);
+  assert.equal(valid.data.longitude, 78.4867);
+  assert.ok(validateFarmPayload({ latitude: 91 }, { partial: true }).errors.some(error => error.startsWith('latitude must be')));
+  assert.ok(validateFarmPayload({ longitude: -181 }, { partial: true }).errors.some(error => error.startsWith('longitude must be')));
+});
+
 test('rejects invalid farm area, pH, date, and unsafe image data', () => {
   const result = validateFarmPayload({ name: 'Farm', location: 'Somewhere', area: 0, soilPH: 15, soilTestDate: '2026-02-30', images: ['javascript:alert(1)'] });
   assert.ok(result.errors.some((error) => error.startsWith('area must be')));

@@ -11,6 +11,7 @@ import PageHeader from '../components/ui/PageHeader';
 import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import GovernmentAdvisoryLink from '../components/farm/GovernmentAdvisoryLink';
+import FarmLocationPicker from '../components/farm/FarmLocationPicker';
 import toast from 'react-hot-toast';
 import { Warehouse, Plus, Edit2, Trash2, MapPin, Ruler, Droplets, Loader2, ArrowLeft, ArrowRight, Check, Sprout, Camera, X, FlaskConical, Leaf, FileText, ScanSearch } from 'lucide-react';
 
@@ -45,7 +46,7 @@ function soilReportUnitMatches(field, unit) {
   if (field === 'soilEC') return value === 'ds/m' || value === 'dsm-1';
   if (field === 'soilOC') return value === '%' || value === 'percent';
   if (['soilN', 'soilP', 'soilK'].includes(field)) return /^kg\/ha$/i.test(value);
-  return value === 'ppm';
+  return value === 'ppm' || value === 'mg/kg';
 }
 
 function compressFarmPhoto(file) {
@@ -93,6 +94,11 @@ function FarmCard({ farm, onEdit, onDelete, onRecommend, onAssess }) {
               <MapPin className="w-3 h-3" />
               <span className="text-xs">{farm.location}</span>
             </div>
+            {Number.isFinite(farm.latitude) && Number.isFinite(farm.longitude) && <a
+              className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-green-700 hover:underline"
+              href={`https://www.google.com/maps/search/?api=1&query=${farm.latitude},${farm.longitude}`}
+              target="_blank" rel="noreferrer"
+            ><MapPin className="h-3 w-3" />Open farm pin in Maps</a>}
           </div>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -227,13 +233,19 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
       cultivationMethod: 'Conventional',
       crops: [],
     };
-  const { register, handleSubmit, trigger, setValue, formState: { errors } } = useForm({ defaultValues: initialValues });
+  const { register, handleSubmit, trigger, setValue, watch, formState: { errors } } = useForm({ defaultValues: initialValues });
+  const farmSearchText = [watch('village'), watch('district'), watch('state')].filter(Boolean).join(', ');
   const [step, setStep] = useState(0);
   const [farmPhoto, setFarmPhoto] = useState(defaultValues?.images?.[0] || '');
   const [soilReport, setSoilReport] = useState(null);
   const [soilReportBusy, setSoilReportBusy] = useState(false);
   const [soilReportConsent, setSoilReportConsent] = useState(false);
   const [soilSources, setSoilSources] = useState(() => ({ ...(defaultValues?.soilSources || {}) }));
+  const [farmCoordinates, setFarmCoordinates] = useState(() => (
+    Number.isFinite(defaultValues?.latitude) && Number.isFinite(defaultValues?.longitude)
+      ? { latitude: defaultValues.latitude, longitude: defaultValues.longitude }
+      : null
+  ));
   const soilReportInput = useRef(null);
   const photoInput = useRef(null);
   const isEditing = Boolean(defaultValues);
@@ -261,7 +273,7 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
       toast.error('Choose a soil report file smaller than 5 MB.');
       return;
     }
-    if (!soilReportConsent) {
+    if (!isPdf && !soilReportConsent) {
       toast.error('Please allow the report file to be processed by the configured AI service first.');
       return;
     }
@@ -269,10 +281,10 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
     try {
       const body = new FormData();
       body.append('report', file);
-      body.append('consentToAIProcessing', 'true');
+      body.append('consentToAIProcessing', String(soilReportConsent));
       const { data } = await api.post('/farms/soil-report/extract', body);
       setSoilReport(data.extraction);
-      toast.success('Report scanned. Review each value before applying it.');
+      toast.success(data.extractionMethod === 'local_pdf_text' ? 'PDF text read locally. Review each value before applying it.' : 'Report scanned with Gemini. Review each value before applying it.');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Could not scan this report. Enter the values manually.');
     } finally {
@@ -329,6 +341,8 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
       crops: defaultValues?.crops || [],
       images: farmPhoto ? [farmPhoto] : [],
       location: [data.village, data.district, data.state].filter(Boolean).join(', '),
+      latitude: farmCoordinates?.latitude,
+      longitude: farmCoordinates?.longitude,
     };
     await onSubmit(payload);
   });
@@ -387,6 +401,7 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
             <input className="input" {...register('state', { required: 'State is required' })} />
           </FormField>
         </div>
+        <FarmLocationPicker coordinates={farmCoordinates} onChange={setFarmCoordinates} searchText={farmSearchText} />
       </section>}
 
       {step === 1 && <section className="space-y-4">
@@ -399,17 +414,17 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
             <FileText className="mt-0.5 h-4 w-4 shrink-0 text-green-700" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-[var(--color-text)]">Have a soil test report?</p>
-              <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">Upload the soil test PDF or a clear JPG, PNG, or WebP scan. KisanAI extracts pH and nutrient readings; you review them before saving, and unclear values stay blank.</p>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">Selectable text in a PDF is read by your local ML service first. Scanned PDFs and photos use Gemini only if you consent. You review readings before saving; unclear values stay blank.</p>
               <label className="mt-2 flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
                 <input type="checkbox" checked={soilReportConsent} onChange={event => setSoilReportConsent(event.target.checked)} className="mt-0.5 accent-green-700" />
-                <span>I agree to send this report file to the configured Gemini AI service for text extraction. KisanAI does not save the file; extracted values are shown for my review.</span>
+                <span>I agree to send scanned PDFs or report photos to Gemini for extraction. Selectable PDF text is processed locally first. The file is not saved; extracted values are shown for my review.</span>
               </label>
               <input ref={soilReportInput} type="file" accept="application/pdf,.pdf,image/jpeg,image/png,image/webp" onChange={scanSoilReport} className="sr-only" aria-label="Choose a soil test report PDF or image" />
-              <button type="button" onClick={() => soilReportInput.current?.click()} disabled={!soilReportConsent || soilReportBusy} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-green-700 px-3 py-2 text-xs font-semibold text-green-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-green-300">
+              <button type="button" onClick={() => soilReportInput.current?.click()} disabled={soilReportBusy} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-green-700 px-3 py-2 text-xs font-semibold text-green-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-green-300">
                 {soilReportBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
                 {soilReportBusy ? 'Reading report…' : 'Scan soil report PDF or image'}
               </button>
-              {!soilReportConsent && <p className="mt-1 text-[0.68rem]">Optional. You can continue by entering known values below.</p>}
+              {!soilReportConsent && <p className="mt-1 text-[0.68rem]">Selectable PDFs can be read locally. Scanned PDFs and photos need consent before Gemini processing. Manual entry is always available.</p>}
             </div>
           </div>
           {soilReport && <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
@@ -422,7 +437,7 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
               })}
               <p className="col-span-2"><b>Test date:</b> {soilReport.soilTestDate || 'Not read'}</p>
             </div>
-            <p className="mt-2 text-[0.68rem] leading-relaxed text-amber-800 dark:text-amber-300">Values are copied only when the printed unit matches the model input unit. Other units need a verified conversion. OCR can make mistakes—compare every value with the report.</p>
+            <p className="mt-2 text-[0.68rem] leading-relaxed text-amber-800 dark:text-amber-300">Values are copied only when the printed unit matches the model input unit. mg/kg and ppm are treated as equivalent by mass. P₂O₅ and K₂O readings are not copied into elemental P/K fields. Compare every value with the report.</p>
             <button type="button" onClick={applySoilExtraction} className="mt-2 rounded-lg bg-green-700 px-3 py-2 text-xs font-semibold text-white">Copy clear values to form</button>
           </div>}
         </div>

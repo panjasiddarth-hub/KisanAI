@@ -20,7 +20,7 @@ export default function Profile() {
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
-  const [deleteForm, setDeleteForm] = useState({ password: '', confirmEmail: '' });
+  const [deleteForm, setDeleteForm] = useState({ password: '', confirmContact: '' });
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: { name: user?.name, phone: user?.phone, location: user?.location }
@@ -70,7 +70,7 @@ export default function Profile() {
   const onDeleteAccount = async (event) => {
     event.preventDefault();
     setDeleteSubmitting(true);
-    const result = await deleteAccount(deleteForm.password, deleteForm.confirmEmail);
+    const result = await deleteAccount(deleteForm.password, deleteForm.confirmContact);
     setDeleteSubmitting(false);
     if (!result.success) {
       toast.error(result.error);
@@ -240,14 +240,14 @@ export default function Profile() {
             onChange={(event) => setDeleteForm((value) => ({ ...value, password: event.target.value }))}
           />
           <label className="block text-xs text-[var(--color-text-muted)]">
-            Type <strong className="text-[var(--color-text)]">{user?.email}</strong> to confirm.
+            Type your account {user?.email ? 'email' : 'phone number'} <strong className="text-[var(--color-text)]">{user?.email || user?.phone}</strong> to confirm.
             <input
               className="input mt-2"
-              type="email"
-              autoComplete="email"
+              type={user?.email ? 'email' : 'tel'}
+              autoComplete={user?.email ? 'email' : 'tel'}
               required
-              value={deleteForm.confirmEmail}
-              onChange={(event) => setDeleteForm((value) => ({ ...value, confirmEmail: event.target.value }))}
+              value={deleteForm.confirmContact}
+              onChange={(event) => setDeleteForm((value) => ({ ...value, confirmContact: event.target.value }))}
             />
           </label>
           <button type="submit" disabled={deleteSubmitting} className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold disabled:opacity-60">

@@ -6,6 +6,7 @@ import { apiErrorMessage } from '../api/client';
 import { getWeather } from '../api/weather';
 import { runFarmAssessment } from '../api/farmAssessment';
 import { useFarms } from '../hooks/useFarms';
+import { getFarmAssessmentReadiness } from '../utils/farmAssessmentReadiness';
 
 const EMPTY_ENVIRONMENT = { temperature: '', humidity: '', rainfall: '' };
 const INPUT_LABELS = {
@@ -91,6 +92,7 @@ export default function FarmAssessment() {
   const { farms, loading: farmsLoading } = useFarms();
   const [farmId, setFarmId] = useState(initialFarm?.id || '');
   const farm = useMemo(() => farms.find((item) => item.id === farmId) || (initialFarm?.id === farmId ? initialFarm : null), [farms, farmId, initialFarm]);
+  const soilReadiness = useMemo(() => getFarmAssessmentReadiness(farm), [farm]);
   const [environment, setEnvironment] = useState(EMPTY_ENVIRONMENT);
   const [environmentSources, setEnvironmentSources] = useState({});
   const [weatherMessage, setWeatherMessage] = useState('');
@@ -112,7 +114,11 @@ export default function FarmAssessment() {
     if (!farm) return () => { active = false; };
     const locationName = WEATHER_LOCATION(farm);
     setWeatherBusy(true);
-    getWeather({ location: locationName })
+    const hasPinnedCoordinates = Number.isFinite(Number(farm.latitude)) && Number.isFinite(Number(farm.longitude));
+    const weatherRequest = hasPinnedCoordinates
+      ? { lat: farm.latitude, lon: farm.longitude, location: locationName }
+      : { location: locationName };
+    getWeather(weatherRequest)
       .then((weather) => {
         if (!active) return;
         setEnvironment((current) => ({ ...current, temperature: weather.current.temperature, humidity: weather.current.humidity }));
@@ -169,6 +175,12 @@ export default function FarmAssessment() {
       </section>
 
       {farm && <form onSubmit={submit} className="card space-y-4 p-5">
+        <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4" aria-label="Soil profile readiness">
+          <div className="flex flex-wrap items-center gap-2"><FlaskConical className="h-4 w-4 text-emerald-700" /><h3 className="text-sm font-bold">Soil model profile: {soilReadiness.complete} of {soilReadiness.total} required inputs ready</h3></div>
+          {soilReadiness.missing.length === 0
+            ? <p className="mt-2 text-xs text-[var(--color-text-muted)]">Your saved soil profile has the inputs required by the fertilizer model.</p>
+            : <><p className="mt-2 text-xs text-[var(--color-text-muted)]">The fertilizer model will ask for these values and won’t fill them in by guessing:</p><p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">{soilReadiness.missing.join(' · ')}</p><button type="button" onClick={() => navigate('/farms', { state: { editFarmId: farm.id } })} className="mt-3 rounded-lg border border-emerald-700 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40">Add soil details or report</button></>}
+        </section>
         <div><h3 className="font-bold">Weather inputs for crop model</h3><p className="mt-1 text-xs text-[var(--color-text-muted)]">Current temperature and humidity are prefilled when the weather service finds your farm. Confirm or edit them. Rainfall is required; the model’s rainfall reference period is undocumented, so use a verified value and review the result locally.</p></div>
         {weatherBusy && <p className="text-xs text-sky-700">Loading current farm weather…</p>}
         {weatherMessage && <p className="text-xs text-[var(--color-text-muted)]">{weatherMessage}</p>}

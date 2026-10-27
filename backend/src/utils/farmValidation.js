@@ -18,6 +18,8 @@ const FARM_NUMBER_LIMITS = {
   soilFe: { min: 0, max: 1_000_000 },
   soilCu: { min: 0, max: 1_000_000 },
   soilMn: { min: 0, max: 1_000_000 },
+  latitude: { min: -90, max: 90 },
+  longitude: { min: -180, max: 180 },
 };
 const FARM_ARRAY_LIMITS = { crops: 30, irrigationMethods: 10 };
 const SOIL_SOURCE_FIELDS = ['soilPH', 'soilEC', 'soilOC', 'soilN', 'soilP', 'soilK', 'soilS', 'soilZn', 'soilB', 'soilFe', 'soilCu', 'soilMn'];

@@ -207,7 +207,7 @@ router.post('/', async (req, res) => {
     : null;
   const explanations = explainResults(validatedRuns, cropContextReview);
   const ragResult = validatedRuns.rag?.result;
-  const answer = ragResult
+  const answer = ragResult?.results?.length
     ? await aiAnswerFromSources(request.question || request.rag.question, ragResult.results, request.language || 'English')
     : null;
   const availableAgents = Object.entries(validatedRuns).filter(([, run]) => !run.error).map(([agent]) => agent);
@@ -230,8 +230,10 @@ router.post('/', async (req, res) => {
       validation,
       explanations,
       answer: answer ? { text: answer, source: 'gemini_grounded_in_retrieved_documents' } : ragResult ? {
-        text: 'I found these reference documents. I cannot safely compose a grounded answer right now; please review the cited excerpts or try again later.',
-        source: 'retrieved_documents_only',
+        text: ragResult.results?.length
+          ? 'I found these reference documents, but cannot compose a grounded answer right now. Please review the cited excerpts.'
+          : 'I could not find a relevant verified source for that question. Try asking about a Soil Health Card, PM-KISAN, e-NAM, or crop insurance, or check the linked official portals.',
+        source: ragResult.results?.length ? 'retrieved_documents_only' : 'no_relevant_sources',
       } : null,
       unavailableAgents: { disease: 'Disease photo screening runs separately and is not included in this agent request.' },
     },

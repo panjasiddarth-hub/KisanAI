@@ -1,5 +1,5 @@
 // src/components/layout/Sidebar.jsx
-// Left navigation rail — logo, menu, profile card, upgrade card
+// Left navigation rail — logo, menu and profile card
 
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, Bot, Warehouse, CalendarDays, CloudSun, BarChart3,
   Stethoscope, Droplets, Landmark, TrendingUp, Bell, Settings,
-  Sprout, ChevronDown, Sparkles, LogOut, User, X, FlaskConical, CalendarCheck
+  Sprout, ChevronDown, LogOut, User, X, FlaskConical, CalendarCheck
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -126,22 +126,6 @@ export default function Sidebar({ open, onClose }) {
           </button>
         </div>
 
-        {/* Upgrade card */}
-        <div className="p-3">
-          <div className="rounded-2xl bg-gradient-to-br from-green-700 to-emerald-900 p-4 text-white relative overflow-hidden">
-            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/10 pointer-events-none" />
-            <div className="flex items-center gap-1.5 font-bold text-sm">
-              <Sparkles className="w-4 h-4" /> Upgrade to Pro
-            </div>
-            <p className="text-[0.72rem] text-green-100 mt-1.5 mb-3">Unlock advanced AI insights</p>
-            <button
-              onClick={() => navigate('/profile')}
-              className="w-full bg-white text-green-800 font-bold text-xs py-2.5 rounded-xl hover:bg-green-50 transition-colors"
-            >
-              Upgrade Now
-            </button>
-          </div>
-        </div>
       </aside>
     </>
   );

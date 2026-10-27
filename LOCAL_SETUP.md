@@ -59,10 +59,10 @@ npm run dev
 
 Open the local URL printed by Vite, normally `http://localhost:5173`.
 
-## Demo login and service checks
+## Account setup and service checks
 
-- Demo login: `siddarth@kisan.com`
-- Password: `password123`
+- Create an account in the app. With local `OTP_DELIVERY_PROVIDER=console`,
+  find the signup verification code in the backend terminal.
 - Backend health: `http://localhost:5000/api/health`
 - Backend liveness/readiness: `http://localhost:5000/api/health/live` and
   `http://localhost:5000/api/health/ready`

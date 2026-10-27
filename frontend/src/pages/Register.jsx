@@ -10,22 +10,38 @@ import { Leaf, Eye, EyeOff, Loader2, Tractor } from 'lucide-react';
 
 export default function Register() {
   const { register: registerUser } = useAuth();
+  const { verifySignupOtp } = useAuth();
   const navigate = useNavigate();
   const [showPass, setShowPass] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { register, handleSubmit, watch, formState: { errors } } = useForm();
+  const [pendingSignup, setPendingSignup] = useState(null);
+  const [otp, setOtp] = useState('');
+  const { register, handleSubmit, watch, formState: { errors } } = useForm({ defaultValues: { contactType: 'email' } });
   const password = watch('password');
+  const contactType = watch('contactType');
 
   const onSubmit = async (data) => {
     setSubmitting(true);
-    const result = await registerUser(data.name, data.email, data.password);
+    const rawContact = data.contactType === 'email' ? data.email : data.phone;
+    const contact = data.contactType === 'email' ? rawContact.trim().toLowerCase() : rawContact.trim();
+    const result = await registerUser(data.name, data.contactType, contact, data.password);
     setSubmitting(false);
     if (result.success) {
-      toast.success('Account created! Welcome to Kisan AI 🌾');
-      navigate('/farms');
+      setPendingSignup({ contactType: data.contactType, contact });
+      toast.success(result.message || 'Verification code sent');
     } else {
       toast.error(result.error);
     }
+  };
+
+  const onVerify = async (event) => {
+    event.preventDefault();
+    if (!pendingSignup || !/^\d{6}$/.test(otp)) return toast.error('Enter the 6-digit code');
+    setSubmitting(true);
+    const result = await verifySignupOtp(pendingSignup.contactType, pendingSignup.contact, otp);
+    setSubmitting(false);
+    if (result.success) { toast.success('Contact verified. Welcome to KisanAI!'); navigate('/farms'); }
+    else toast.error(result.error);
   };
 
   return (
@@ -42,7 +58,7 @@ export default function Register() {
           </div>
         </div>
         <h1 className="text-xl font-bold text-center text-[var(--color-text)] mb-1">Create Your Account</h1>
-        <p className="text-sm text-center text-[var(--color-text-muted)] mb-6">Join 10,000+ farmers using Kisan AI</p>
+        <p className="text-sm text-center text-[var(--color-text-muted)] mb-6">Create your farm workspace and start planning.</p>
 
         <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-3 text-center text-sm font-medium text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-400">
           <div className="flex items-center justify-center gap-2">
@@ -51,7 +67,19 @@ export default function Register() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {pendingSignup ? (
+          <form onSubmit={onVerify} className="space-y-4">
+            <p className="text-sm text-[var(--color-text-muted)]">Enter the 6-digit code sent to <strong>{pendingSignup.contact}</strong>. The code expires in 10 minutes.</p>
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Verification code</label>
+              <input autoComplete="one-time-code" inputMode="numeric" maxLength={6} className="input" value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" />
+            </div>
+            <button type="submit" disabled={submitting || otp.length !== 6} className="btn-primary w-full flex items-center justify-center gap-2">
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}{submitting ? 'Verifying...' : 'Verify and create account'}
+            </button>
+            <button type="button" className="w-full text-sm text-green-600 font-semibold" onClick={() => setPendingSignup(null)}>Change details / request a new code</button>
+          </form>
+        ) : <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Full name */}
           <div>
             <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Full Name</label>
@@ -64,16 +92,27 @@ export default function Register() {
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
 
-          {/* Email */}
+          {/* Contact method */}
           <div>
+            <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Sign up with</label>
+            <select className="input mb-3" {...register('contactType')}>
+              <option value="email">Email</option><option value="phone">Phone number</option>
+            </select>
+            {contactType === 'email' ? <>
             <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Email Address</label>
             <input
               type="email"
               placeholder="you@example.com"
               className="input"
-              {...register('email', { required: 'Email is required', pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' } })}
+              autoComplete="email"
+              {...register('email', { required: contactType === 'email' ? 'Email is required' : false, maxLength: { value: 254, message: 'Email is too long' }, pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email' } })}
             />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+            </> : <>
+            <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Phone number</label>
+            <input type="tel" inputMode="tel" autoComplete="tel" placeholder="+919876543210" className="input" {...register('phone', { required: contactType === 'phone' ? 'Phone number is required' : false, pattern: { value: /^\+[1-9]\d{7,14}$/, message: 'Include country code, e.g. +919876543210' } })} />
+            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
+            </>}
           </div>
 
           {/* Password */}
@@ -121,9 +160,9 @@ export default function Register() {
             className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            {submitting ? 'Creating Account...' : 'Create Account'}
+            {submitting ? 'Sending code...' : 'Send verification code'}
           </button>
-        </form>
+        </form>}
 
         <p className="text-center text-sm text-[var(--color-text-muted)] mt-5">
           Already have an account?{' '}

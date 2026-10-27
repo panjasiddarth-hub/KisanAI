@@ -22,7 +22,8 @@ than silently using volatile in-memory storage.
 
 ## Request validation and throttling
 
-Login and registration validate basic input types and limits. Prediction and
+Login and registration validate input types, email syntax, and E.164 phone
+numbers. Prediction and
 orchestration routes validate model inputs before inference. Fixed-window request
 limits protect login (10 per 15 minutes), registration (5 per hour), predictions
 and orchestration (30 per 15 minutes), market (30 per 15 minutes), and weather
@@ -49,14 +50,26 @@ when MongoDB mode is active but the database connection is no longer ready.
 
 New passwords must be at least 12 characters and no more than 72 UTF-8 bytes
 (the bcrypt input limit); passphrases are accepted without character-class
-rules. Access tokens currently expire after seven days. Logout revokes all
-sessions for that account, and changing the password issues a new token while
-revoking other sessions. Password recovery is not available until an email/SMS
-delivery provider and verification flow are configured.
+rules. Signup accepts an email address or an E.164 phone number and requires a
+6-digit OTP before creating the account. Signup and password-reset codes expire
+after 10 minutes, are stored as HMAC hashes, allow at most five guesses, and are
+single-use. Local development defaults to `OTP_DELIVERY_PROVIDER=console`; the
+code appears only in the backend terminal. Production can route channels
+independently using `OTP_EMAIL_PROVIDER=resend` and `OTP_SMS_PROVIDER=twilio`.
+Configure Resend (`RESEND_API_KEY`, `OTP_EMAIL_FROM`) for email and Twilio
+(`TWILIO_ACCOUNT_SID`,
+`TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` or
+`TWILIO_MESSAGING_SERVICE_SID`) for SMS. The legacy `OTP_DELIVERY_PROVIDER`
+setting still selects one provider for both compatible channels. Console
+delivery is rejected in production. See `.env.example` for placeholder variables. Access tokens
+currently expire after seven days. Logout revokes all sessions for that
+account, and changing the password issues a new token while revoking other
+sessions. Password reset revokes all existing sessions and requires sign-in
+with the new password.
 
 Signed-in users can download a JSON export from `GET /api/auth/export`. Account
 deletion uses `DELETE /api/auth/account` and requires the current password plus
-the exact account email; MongoDB deletion runs in a transaction and removes the
+the exact verified email or phone; MongoDB deletion runs in a transaction and removes the
 account's farms, crops, and crop plans. This requires a transaction-capable
 MongoDB deployment. Consent language, retention schedules, and deletion from
 future external file storage still need product and operational policies.

@@ -5,8 +5,10 @@ import { User } from '../models/User.js';
 import { CropPlan } from '../models/CropPlan.js';
 import { Farm } from '../models/Farm.js';
 import { Crop } from '../models/Crop.js';
+import { PendingSignup } from '../models/PendingSignup.js';
+import { PendingPasswordReset } from '../models/PendingPasswordReset.js';
 
-const memory = { users: [], plans: [], farms: [], crops: [] };
+const memory = { users: [], plans: [], farms: [], crops: [], pendingSignups: [], pendingPasswordResets: [] };
 const isMongo = () => globalThis.__DB_MODE__ === 'mongodb';
 
 const publicUser = (u) => u && {
@@ -19,17 +21,124 @@ export const users = {
     if (isMongo()) return User.findOne({ email: email.toLowerCase() }).lean();
     return memory.users.find(u => u.email === email.toLowerCase()) || null;
   },
+  async findByPhone(phone) {
+    if (isMongo()) return User.findOne({ phone }).lean();
+    return memory.users.find(u => u.phone === phone) || null;
+  },
+  async findByIdentifier(identifier) {
+    if (isMongo()) return User.findOne({ $or: [{ email: identifier }, { phone: identifier }] }).lean();
+    return memory.users.find(u => u.email === identifier || u.phone === identifier) || null;
+  },
   async findById(id) {
     if (isMongo()) return User.findById(id).lean().catch(() => null);
     return memory.users.find(u => u.id === id) || null;
   },
-  async create({ name, email, password }) {
+  async create({ name, email, phone, password }) {
     const passwordHash = await bcrypt.hash(password, 10);
     if (isMongo()) {
-      const doc = await User.create({ name, email: email.toLowerCase(), passwordHash });
+      const doc = await User.create({ name, ...(email ? { email: email.toLowerCase() } : {}), ...(phone ? { phone } : {}), passwordHash });
       return doc.toObject();
     }
-    const user = { id: String(Date.now()), name, email: email.toLowerCase(), passwordHash, tokenVersion: 0, role: 'farmer', phone: '', location: '' };
+    const user = { id: String(Date.now()), name, ...(email ? { email: email.toLowerCase() } : {}), ...(phone ? { phone } : {}), passwordHash, tokenVersion: 0, role: 'farmer', location: '' };
+    memory.users.push(user);
+    return user;
+  },
+  async createPendingSignup(record) {
+    if (isMongo()) {
+      const data = { ...record, contactKey: `${record.contactType}:${record.contact}` };
+      return PendingSignup.findOneAndUpdate({ contactKey: data.contactKey }, data, { upsert: true, new: true, setDefaultsOnInsert: true }).lean();
+    }
+    const contactKey = `${record.contactType}:${record.contact}`;
+    const pending = { ...record, contactKey, attempts: 0, createdAt: Date.now() };
+    const index = memory.pendingSignups.findIndex(row => row.contactKey === contactKey);
+    if (index < 0) memory.pendingSignups.push(pending); else memory.pendingSignups[index] = pending;
+    return pending;
+  },
+  async findPendingSignup(contactType, contact) {
+    const contactKey = `${contactType}:${contact}`;
+    if (isMongo()) return PendingSignup.findOne({ contactKey }).lean();
+    const row = memory.pendingSignups.find(item => item.contactKey === contactKey) || null;
+    return row && Date.now() - row.createdAt < 10 * 60 * 1000 ? row : null;
+  },
+  async incrementPendingSignupAttempts(contactType, contact) {
+    const contactKey = `${contactType}:${contact}`;
+    if (isMongo()) return PendingSignup.findOneAndUpdate({ contactKey }, { $inc: { attempts: 1 } }, { new: true }).lean();
+    const row = memory.pendingSignups.find(item => item.contactKey === contactKey);
+    if (row) row.attempts += 1;
+    return row || null;
+  },
+  async deletePendingSignup(contactType, contact) {
+    const contactKey = `${contactType}:${contact}`;
+    if (isMongo()) return PendingSignup.deleteOne({ contactKey });
+    const index = memory.pendingSignups.findIndex(row => row.contactKey === contactKey);
+    if (index >= 0) memory.pendingSignups.splice(index, 1);
+    return { deletedCount: index >= 0 ? 1 : 0 };
+  },
+  async consumePendingSignup(contactType, contact, otpHash) {
+    const contactKey = `${contactType}:${contact}`;
+    if (isMongo()) return PendingSignup.findOneAndDelete({ contactKey, otpHash, attempts: { $lt: 5 } }).lean();
+    const index = memory.pendingSignups.findIndex(row => row.contactKey === contactKey && row.otpHash === otpHash && row.attempts < 5 && Date.now() - row.createdAt < 10 * 60 * 1000);
+    if (index < 0) return null;
+    return memory.pendingSignups.splice(index, 1)[0];
+  },
+  async createPendingPasswordReset(record) {
+    const data = { ...record, contactKey: `${record.contactType}:${record.contact}` };
+    if (isMongo()) {
+      return PendingPasswordReset.findOneAndUpdate(
+        { contactKey: data.contactKey }, data,
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      ).lean();
+    }
+    const pending = { ...data, attempts: 0, createdAt: record.createdAt ?? Date.now() };
+    const index = memory.pendingPasswordResets.findIndex(row => row.contactKey === data.contactKey);
+    if (index < 0) memory.pendingPasswordResets.push(pending);
+    else memory.pendingPasswordResets[index] = pending;
+    return pending;
+  },
+  async findPendingPasswordReset(contactType, contact) {
+    const contactKey = `${contactType}:${contact}`;
+    if (isMongo()) return PendingPasswordReset.findOne({
+      contactKey, createdAt: { $gte: new Date(Date.now() - 10 * 60 * 1000) },
+    }).lean();
+    const row = memory.pendingPasswordResets.find(item => item.contactKey === contactKey) || null;
+    return row && Date.now() - row.createdAt < 10 * 60 * 1000 ? row : null;
+  },
+  async incrementPendingPasswordResetAttempts(contactType, contact) {
+    const contactKey = `${contactType}:${contact}`;
+    if (isMongo()) return PendingPasswordReset.findOneAndUpdate({
+      contactKey, createdAt: { $gte: new Date(Date.now() - 10 * 60 * 1000) },
+    }, { $inc: { attempts: 1 } }, { new: true }).lean();
+    const row = memory.pendingPasswordResets.find(item => item.contactKey === contactKey);
+    if (row) row.attempts += 1;
+    return row || null;
+  },
+  async deletePendingPasswordReset(contactType, contact) {
+    const contactKey = `${contactType}:${contact}`;
+    if (isMongo()) return PendingPasswordReset.deleteOne({ contactKey });
+    const index = memory.pendingPasswordResets.findIndex(row => row.contactKey === contactKey);
+    if (index >= 0) memory.pendingPasswordResets.splice(index, 1);
+    return { deletedCount: index >= 0 ? 1 : 0 };
+  },
+  async consumePendingPasswordReset(contactType, contact, otpHash) {
+    const contactKey = `${contactType}:${contact}`;
+    if (isMongo()) {
+      return PendingPasswordReset.findOneAndDelete({
+        contactKey, otpHash, attempts: { $lt: 5 },
+        createdAt: { $gte: new Date(Date.now() - 10 * 60 * 1000) },
+      }).lean();
+    }
+    const index = memory.pendingPasswordResets.findIndex(row => row.contactKey === contactKey
+      && row.otpHash === otpHash && row.attempts < 5
+      && Date.now() - row.createdAt < 10 * 60 * 1000);
+    if (index < 0) return null;
+    return memory.pendingPasswordResets.splice(index, 1)[0];
+  },
+  async createVerified({ name, email, phone, passwordHash }) {
+    if (isMongo()) {
+      const doc = await User.create({ name, ...(email ? { email } : {}), ...(phone ? { phone } : {}), passwordHash });
+      return doc.toObject();
+    }
+    const user = { id: String(Date.now()), name, ...(email ? { email } : {}), ...(phone ? { phone } : {}), passwordHash, tokenVersion: 0, role: 'farmer', location: '' };
     memory.users.push(user);
     return user;
   },
@@ -236,7 +345,7 @@ export async function seedDemoUser() {
   const email = 'siddarth@kisan.com';
   if (!(await users.findByEmail(email))) {
     const user = await users.create({ name: 'Siddarth R.', email, password: 'password123' });
-    console.log('👤 Seeded demo farmer: siddarth@kisan.com / password123');
+    console.log('👤 Seeded local demo farmer.');
 
     // Create demo farm and crop
     const f1 = await farms.create({

@@ -54,10 +54,15 @@ async function callML(endpoint, body) {
 
 router.get('/meta', async (_req, res) => {
   let diseaseModelAvailable = false;
+  let knowledgeAssistantAvailable = false;
+  let knowledgeAssistantStatus = 'Paused until the ML service reports a recently reviewed official-source corpus.';
   try {
     const health = await fetch(`${ML_SERVICE_URL}/health`, { signal: AbortSignal.timeout(1500) });
     const status = await health.json();
     diseaseModelAvailable = health.ok && status.models?.disease === 'available';
+    knowledgeAssistantAvailable = health.ok && status.models?.rag === 'available' && status.models?.ragCorpusVerified === true;
+    if (knowledgeAssistantAvailable) knowledgeAssistantStatus = status.models?.ragDetails?.detail || 'Verified source retrieval is available.';
+    else if (health.ok && typeof status.models?.rag === 'string') knowledgeAssistantStatus = status.models.rag;
   } catch { /* Keep the disease UI disabled while the ML service is offline. */ }
   res.json({
     soilTypes: SOIL_TYPES,
@@ -66,8 +71,8 @@ router.get('/meta', async (_req, res) => {
     crops: CROPS.map((crop) => crop.name),
     diseaseCrops: [],
     diseaseModelAvailable,
-    knowledgeAssistantAvailable: false,
-    knowledgeAssistantStatus: 'Paused until the reference corpus has verified sources and publication dates.',
+    knowledgeAssistantAvailable,
+    knowledgeAssistantStatus,
     officialSoilHealthCardLookupAvailable: isShcConfigured(),
     symptoms: SYMPTOMS,
     geminiEnabled: !!process.env.GEMINI_API_KEY,

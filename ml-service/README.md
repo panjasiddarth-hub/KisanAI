@@ -5,9 +5,8 @@ All machine-learning service files are grouped in this folder:
 - `main.py` — FastAPI application and prediction endpoints.
 - `schemas.py` — API request and response models.
 - `requirements.txt` — Python dependencies for the service.
-- `services/` — crop, fertilizer, market, disease, and retrieval logic.
-- `models/` — trained model artifacts, encoders, and the FAISS index used by
-  the service.
+- `services/` — crop, fertilizer, market, disease, soil-report and retrieval logic.
+- `models/` — trained model artifacts and the reviewed `rag_corpus.json` source corpus.
 
 ## Run locally
 
@@ -30,13 +29,17 @@ On macOS/Linux, activate with `source .venv/bin/activate` and use the same
 install and Uvicorn commands.
 
 The API is available at `http://localhost:8000`; its interactive docs are at
-`http://localhost:8000/docs`. Retrieval uses the FAISS embedding index and the
-cached `all-MiniLM-L6-v2` embedding model; requests fail clearly if semantic
-retrieval cannot load. There is no keyword-search substitute. RAG is currently
-paused: the bundled index contains an undated local schemes CSV without
-verifiable primary-source URLs. `/health` reports this and `/predict/rag`
-returns HTTP 503 until a curated, source-linked corpus is reviewed. Crop, fertilizer,
-and market predictions use the included serialized model artifacts. Those
+`http://localhost:8000/docs`. RAG uses a local TF-IDF retrieval index built in
+memory from the curated source summaries in `models/rag_corpus.json`. Every
+entry must have an HTTPS `.gov.in` or `.nic.in` URL and a source review date
+within the last year. Responses include the source title, publisher, link, scope,
+review date and retrieved excerpt. `/health` reports corpus readiness;
+`/predict/rag` returns no documents when nothing meets the relevance threshold.
+It does not call Gemini; the Node orchestrator optionally uses Gemini to compose
+a concise answer from retrieved excerpts and displays the official links. The
+current corpus covers Soil Health Cards, PM-KISAN, e-NAM and PMFBY, in English.
+This is a reviewed starter corpus, not comprehensive agricultural coverage.
+Crop, fertilizer, and market predictions use the included serialized model artifacts. Those
 scikit-learn artifacts were saved with scikit-learn 1.6.1; use a compatible
 Python/scikit-learn environment to avoid cross-version pickle warnings. Disease
 image screening uses `models/disease_model.keras`, TensorFlow and the ordered
@@ -64,14 +67,18 @@ model's training dataset or a manifest documenting feature units, especially
 the rainfall reference period, or model evaluation/calibration. Verify those
 details before using the shortlist to make planting decisions.
 
-The market model artifact loads, but it is not validated for farmer decisions.
-The included market smoke fixture currently produces an invalid (non-positive)
-prediction, and the repository does not document the target currency, quantity
-unit, forecast horizon, training data, or evaluation metrics. The API rejects
-non-finite and non-positive prices instead of presenting them as forecasts.
-Do not change the input scale or force a positive output without evidence from
-the original training pipeline and labeled validation data. `/health` labels
-the market artifact as experimental until this validation is complete.
+The market model artifact loads from the native XGBoost JSON file, and the
+local synthetic smoke fixture produces a positive finite output with the pinned
+XGBoost 3.2.0 runtime. The same fixture was invalid under the older 2.1.4
+environment, confirming that the runtime pin matters. The booster configuration
+reports XGBoost 3.2.0 and objective `reg:squarederror`; inference no longer loads
+the pickled XGBoost wrapper. The original pickle is retained but not used. The
+repository does not document the target
+currency, quantity unit, forecast horizon, training data, or evaluation
+metrics. The API rejects non-finite and non-positive prices instead of
+presenting them as forecasts. A positive synthetic output does not validate a
+market forecast for farmers; `/health` therefore continues to label the market
+artifact experimental.
 
 ## Artifact manifest and provenance
 
@@ -85,8 +92,9 @@ python scripts/verify_model_manifest.py
 
 The disease model labels come from the provided inference script; the model's
 original training pipeline and local-field evaluation data have not been
-independently verified. The knowledge assistant also remains paused until the
-retrieval corpus has verified primary-source URLs and publication dates.
+independently verified. The previous FAISS index and pickle chunks came from an
+undated local CSV and are no longer used for RAG; the reviewed JSON corpus is the
+active source of retrieval content.
 
 ## Available-model smoke check
 
@@ -97,3 +105,20 @@ python scripts/smoke_models.py
 ```
 
 This exercises crop, fertilizer, and market predictions with synthetic contract samples and checks response structure and basic numeric validity. It does not measure accuracy, establish agronomic suitability, or test disease/RAG. Run it inside the environment created from `requirements.txt`; a passing result under a different runtime is only a local diagnostic.
+
+## Regional model evaluation
+
+No labeled training or regional evaluation dataset is included. When one is
+available, run `python scripts/evaluate_models.py --help` for the optional CSV
+and image-folder inputs. Crop CSVs need the artifact's seven input features,
+`actual_crop`, and preferably `state`. Fertilizer CSVs need the context/value
+features plus all nine rating target columns. Market CSVs need the seven lag/
+calendar features, `Commodity`, `Market`, `State`, `actual_price`, and
+`observation_date`; the tool evaluates the last 20% of rows after sorting by
+date. Document currency and quantity units, and calculate each lag using only
+prices available before that observation. Disease images
+must be in subfolders named with the exact 38 output labels; split by farm and
+capture date to avoid leakage. The tool writes metrics only for supplied data;
+it does not certify agronomic suitability. Ask a qualified regional agronomist
+to review the dataset, rating labels, crop shortlists, and disease errors before
+any farmer-facing release.

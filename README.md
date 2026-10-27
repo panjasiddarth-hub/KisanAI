@@ -35,10 +35,10 @@ Farmer → React web app → Express API (authentication, farm data, orchestrati
                                └── weather / optional Gemini services
 ```
 
-The farm orchestrator currently runs the crop and soil-nutrient agents. Disease
-screening takes a separate image-upload path. Market outputs are blocked when
-the model returns an invalid price. RAG is paused until its reference corpus has
-verified sources and publication dates.
+The authenticated farm orchestrator runs crop and soil-nutrient assessments;
+disease screening has a separate image-upload path. Market predictions remain
+experimental. RAG uses a small source-linked English corpus and must not be
+treated as comprehensive agricultural coverage.
 
 ## 🚀 Quick start (three terminals)
 
@@ -66,10 +66,10 @@ npm install
 npm run dev         # http://localhost:5173
 ```
 
-Open the URL printed by Vite (normally `http://localhost:5173`). In local
-development, the backend seeds a demo account: `siddarth@kisan.com` /
-`password123`. This account is for local development only; never use its
-credentials in a public deployment.
+Open the URL printed by Vite (normally `http://localhost:5173`). For local
+development, create an account; the OTP is printed in the backend terminal
+when the console delivery provider is selected. Production must use a real
+email or SMS delivery provider.
 
 For the complete Windows setup, including health checks and troubleshooting,
 see [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
@@ -98,7 +98,12 @@ scores, and market forecasts have not all been independently validated for local
 farms. Consult local agricultural expertise before acting on recommendations.
 
 Frontend `.env` (optional): `VITE_API_URL=http://localhost:5000/api` — only needed if you
-deploy the API elsewhere; locally the Vite proxy handles `/api` for you.
+deploy the API elsewhere; locally the Vite proxy handles `/api` for you. Farm
+location search can use `VITE_GEOCODING_URL`; it defaults to OpenStreetMap's
+Nominatim endpoint and sends only the farmer-entered village, district, and state
+when they press the search button. The public endpoint is for low-volume,
+user-triggered search, not autocomplete or a scaled commercial launch. Use a
+dedicated geocoding provider or your own instance before serving high traffic.
 
 ## API overview
 
@@ -122,9 +127,9 @@ GET  /api/health                    Backend health
 
 ## 🗺️ Roadmap
 
-- **Next** — verify the farm orchestrator end to end against running services,
-  resolve the market-model failure, and evaluate crop/fertilizer models with
-  local experts and representative data.
+- **Next** — evaluate crop/fertilizer models with regional data and local
+  experts; investigate the market model's training data, units, and validation
+  before exposing forecasts as farmer guidance.
 - **Then** — validate disease screening on local field images, improve soil
   report PDF/photo extraction, and verify official advisory and weather sources.
 - **Before wider launch** — pilot with farmers, add reviewed translations and
@@ -175,16 +180,19 @@ has passed.
 
 - Crop and fertilizer synthetic smoke checks pass; this does not establish
   accuracy or suitability for a particular farm.
-- The market smoke check currently fails because a sample produces a
-  non-positive forecast. The API rejects that value; do not use market output
-  for farmer decisions yet.
+- The market smoke check returns a positive finite sample under the pinned
+  XGBoost 3.2.0 runtime. This is only a runtime check; training data, price
+  units, and forecast horizon remain undocumented. The API rejects invalid
+  outputs; do not use market output for farmer decisions yet.
 - The disease artifact loads and returns a 38-class result. A blank-image guard
   rejects uniform images, but synthetic non-leaf patterns can still receive
   high scores. Field evaluation and score calibration are required.
 - Fertilizer outputs are nutrient categories, not product or dose advice.
-- RAG is disabled pending a verified, dated, source-linked knowledge corpus.
-- The farm orchestrator needs a live end-to-end check with backend and ML
-  services running together.
+- RAG is enabled with a small, dated, source-linked English starter corpus; it
+  can abstain when retrieval is weak but does not cover all farmer questions.
+- The authenticated farm orchestrator passed a synthetic end-to-end backend to
+  ML check. Saved-farm assessments still need soil and weather readings, and
+  field suitability remains to be evaluated.
 
 See [`DEPLOYMENT_CHECKLIST.md`](./DEPLOYMENT_CHECKLIST.md) for the full audit,
 remaining work, and release gate. See [`PILOT_SCOPE.md`](./PILOT_SCOPE.md) for

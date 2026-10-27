@@ -60,6 +60,18 @@ test('limits knowledge-retrieval prompt size and result count', () => {
   assert.ok(validateAgentInput('rag', { question: 'Help', top_k: 100 }).includes('Input top_k must be an integer from 1 to 10'));
 });
 
+test('accepts source-linked RAG excerpts and blocks unverified links', () => {
+  const source = {
+    id: 'pmkisan', title: 'PM-KISAN overview', publisher: 'Department of Agriculture & Farmers Welfare',
+    url: 'https://pmkisan.gov.in/', checkedDate: '2026-10-27', text: 'Check eligibility on the official portal.', score: 0.42,
+  };
+  const valid = validateAgentRun({ rag: { input: { question: 'Check scheme status' }, result: { question: 'Check scheme status', results: [source] } } });
+  assert.equal(valid.status, 'passed');
+  const invalid = validateAgentRun({ rag: { input: { question: 'Check scheme status' }, result: { question: 'Check scheme status', results: [{ ...source, url: 'https://example.com/fake' }] } } });
+  assert.equal(invalid.status, 'needs_review');
+  assert.ok(invalid.checks[0].issues.some((issue) => issue.includes('official HTTPS government source')));
+});
+
 test('rejects incomplete fertilizer model output', () => {
   const result = validateAgentRun({
     fertilizer: {

@@ -3,6 +3,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import {
   assertNoDefaultDemoCredentials,
@@ -13,6 +14,7 @@ import {
 } from './src/config/runtimeConfig.js';
 import { connectDB } from './src/database/config/db.js';
 import { ensureRateLimitIndexes } from './src/database/models/RateLimitBucket.js';
+import { ensureUserContactIndexes } from './src/database/config/userIndexes.js';
 import { seedDemoUser, users } from './src/database/repositories/store.js';
 import authRoutes from './src/routes/auth.routes.js';
 import agentRoutes from './src/routes/agents.routes.js';
@@ -28,6 +30,11 @@ validateProductionEnvironment();
 app.set('trust proxy', parseTrustProxyHops());
 app.use(cors(createCorsOptions()));
 app.use(express.json({ limit: '12mb' }));
+app.use((req, res, next) => {
+  req.requestId = randomUUID();
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
 
 // uploaded disease photos (served statically)
 fs.mkdirSync('uploads', { recursive: true });
@@ -69,13 +76,16 @@ app.use((err, _req, res, _next) => {
   const message = err.code === 'LIMIT_FILE_SIZE'
     ? 'Uploaded file must be 5 MB or smaller.'
     : err.status ? err.message : uploadLimitError ? 'Invalid upload request.' : 'Server error';
-  if (status >= 500) console.error(err);
+  if (status >= 500) console.error(JSON.stringify({ event: 'request_error', requestId: _req.requestId, status, code: err.code || 'INTERNAL_ERROR' }));
   res.status(status).json({ error: message });
 });
 
 const PORT = process.env.PORT || 5000;
 await connectDB();          // mongo if MONGODB_URI set, else in-memory
-if (globalThis.__DB_MODE__ === 'mongodb') await ensureRateLimitIndexes();
+if (globalThis.__DB_MODE__ === 'mongodb') {
+  await ensureUserContactIndexes();
+  await ensureRateLimitIndexes();
+}
 if (shouldSeedDemoUser()) await seedDemoUser(); // local demo account only
 else await assertNoDefaultDemoCredentials(users);
 

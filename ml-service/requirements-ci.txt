@@ -1,5 +1,6 @@
-# Minimal dependencies needed by scripts/smoke_models.py.
+# Minimal dependencies needed by smoke checks and RAG/soil-report unit tests.
 # Keep the artifact-critical scikit-learn version aligned with requirements.txt.
+pypdf>=5.0,<7.0
 joblib>=1.4,<2.0
 numpy>=1.26,<3.0
 pandas>=2.2,<4.0

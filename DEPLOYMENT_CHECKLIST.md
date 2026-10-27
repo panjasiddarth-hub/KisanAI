@@ -9,8 +9,10 @@ production use.
 
 - [x] React frontend, Express backend, and FastAPI ML service can run locally.
 - [~] Crop and fertilizer-rating endpoints pass synthetic output checks. The
-  market endpoint rejects a non-positive sample forecast, as intended by its
-  response validation; do not use that model for farmer decisions yet.
+  market smoke fixture returns a positive finite value with the pinned XGBoost
+  3.2.0 runtime (and failed under the previous 2.1.4 environment); its source
+  dataset, currency, quantity unit, and forecast horizon remain undocumented,
+  so do not use it for farmer decisions yet.
 - [x] Backend orchestrator requires login and routes crop, fertilizer, and
   market calls through model-output validation; invalid outputs are surfaced.
 - [x] Weather route source caches successful forecasts for five minutes and
@@ -23,15 +25,21 @@ production use.
   a 15-activity crop calendar; the synthetic test farm and plan were then deleted.
 - [x] ML artifacts have a hash manifest and a verifier that does not load the
   serialized models. The verifier also checks the disease Keras artifact hash.
-- [~] The market artifact records XGBoost 3.2.0 in its serialized booster;
-  runtime and CI requirements are now pinned to that version. Local crop,
-  fertilizer, and market smoke checks pass with XGBoost 3.2.0. The full clean
-  Python 3.12 CI run still needs to pass before calling the ML runtime verified.
-- [~] Synthetic browser journey verified farm creation, crop-context prefill,
+- [~] The market artifact booster configuration records XGBoost 3.2.0;
+  runtime and CI requirements are pinned to that version. Local crop,
+  fertilizer, and market smoke checks pass with XGBoost 3.2.0. The market
+  booster is converted to native JSON and no longer needs XGBoost pickle
+  loading. The full clean Python 3.12 CI run still needs to pass.
+- [x] Synthetic browser journey verified farm creation, crop-context prefill,
   a validated top-three model shortlist with explanation, and calendar creation.
   A fake location could not be geocoded, so manual test weather values were
   used. Real farm weather lookup has since returned current data for the saved
   Hyderabad location; a fresh-process MongoDB persistence check has now passed.
+- [x] Browser checks with synthetic data verified farm creation, location search,
+  a saved map pin, soil-field capture, coordinate-based current weather, and a
+  validated assessment. The selectable-text soil-test PDF was parsed locally;
+  the image-upload consent gate was verified. Gemini extraction still needs a
+  consented browser run with an available Gemini key.
 - [ ] Validate recommendations with agronomy experts and real field data before
   presenting KisanAI as a dependable farming adviser.
 
@@ -48,16 +56,15 @@ production use.
   efficacy, and farmer testimonial claims were removed. Complete a whole-product
   feature-status audit before pilot release. Login, dashboard, and profile now
   avoid invented usage/accuracy metrics, identify disease and notifications as
-  unavailable, and label weather as forecast context. The notifications page no
+  unavailable, and label weather as forecast context. The disease card was
+  corrected to say preliminary screening rather than unavailable; a development
+  demo password was removed from the public landing page. The notifications page no
   longer seeds fictional disease, payment, or weather alerts; profile totals now
   reflect saved farm records. Weather fallback to Nashik is disclosed and the
-  dashboard uses a saved farm location when available. Assistant reference data
-  is labeled as potentially incomplete, outdated, or unofficial. The current RAG
-  index contains 55 chunks from a local `government_schemes_dataset.csv` with no
-  official source URLs or retrieval date; verify its provenance and replace it
-  with current primary sources before presenting scheme answers as authoritative.
-  RAG inference is paused in the ML API and assistant UI until this is done;
-  links to official PM-KISAN, KCC eligibility, and Soil Health Card pages remain.
+  dashboard uses a saved farm location when available. RAG is active using seven
+  reviewed official-source summaries with URLs and review dates, but the corpus
+  is English-only and intentionally narrow; it must not be presented as complete
+  coverage or authoritative personalized advice.
 - [~] A 38-class Keras disease artifact is connected to the authenticated image
   route. Local loading and output-shape smoke checks pass; its label order was
   copied from the supplied inference app and reported test accuracy was not
@@ -100,9 +107,11 @@ production use.
   characters, skips demo-user seeding, and refuses the default public demo
   password. Create production users through the intended onboarding flow.
 - [~] New passwords require a 12-character passphrase within bcrypt's 72-byte
-  limit. Tokens expire after seven days; logout and password change revoke all
-  sessions. Token refresh and verified email/SMS account recovery still need
-  implementation before production.
+  limit. Tokens expire after seven days; logout, password change, and OTP-based
+  password recovery revoke existing sessions. Recovery expiry, five-guess
+  lockout, session revocation, and generic unknown-account responses pass
+  automated tests. Production delivery still needs credentials and staging
+  verification.
 - [~] Farm/crop routes scope access to the signed-in user; crop creation checks
   farm ownership, and PATCH accepts only editable fields. Prediction endpoints
   require authentication. Profile and remaining upload controls still need review.
@@ -122,10 +131,20 @@ production use.
   their account plus owned database records after password/email confirmation.
   MongoDB deletion uses a transaction. Consent copy, retention schedules, and
   deletion from future external file storage still need policies and checks.
-- [ ] Redact passwords, tokens, precise location, and private farm information
-  from logs and error reports.
-- [ ] Review dependency vulnerabilities and establish a process for security
-  updates.
+- [~] `PRIVACY_DATA_FLOW_DRAFT.md` inventories current records and third-party
+  transfers, proposes retention periods, and includes farmer-facing consent
+  copy. Owner and qualified privacy review and approval are still required.
+- [x] Added and tested email/phone OTP password recovery, expiry, attempt limits,
+  and session revocation.
+- [~] Production OTP routing supports separate Resend email and Twilio SMS
+  configuration. Credentials, sender/number verification, and staging delivery
+  checks remain outstanding.
+- [~] API errors now carry request IDs and structured logs omit request data;
+  soil OCR logs no longer emit provider response bodies. Configure and verify
+  production log redaction, retention, and alerting on the hosting platform.
+- [x] Ran registry dependency audits and applied non-forced compatible npm
+  fixes; backend and frontend now report zero known vulnerabilities. Establish a
+  recurring update and audit process before launch.
 
 ## P1 — Persist farm records reliably
 
@@ -134,8 +153,9 @@ production use.
 - [x] Started a fresh backend process against the configured MongoDB deployment;
   MongoDB mode was confirmed and read-only farm/calendar counts matched the
   prior run (6 farms, 10 calendar plans). The original API process was left running.
-- [ ] Test migrations, indexes, unique account constraints, backups, and restore
-  procedures.
+- [~] A staging-only MongoDB backup/restore and monitoring runbook is documented
+  in `DEPLOYMENT_OPERATIONS_RUNBOOK.md`; an authorized staging restore test,
+  backup schedule, and hosting vendor selection remain outstanding.
 - [~] Compared all six signed-in farmer farm records before and after a fresh
   process start; IDs, names, soil-test fields, and previous-crop fields matched.
   None currently has soil readings or a previous crop entered, so populated-value
@@ -145,17 +165,24 @@ production use.
 
 ## P1 — Validate model behavior and decision safety
 
-- [x] Expose crop, fertilizer-rating, market, and disease-image endpoints;
-  RAG inference remains paused pending corpus provenance review.
-- [~] Crop and fertilizer synthetic inference checks pass. The disease model
-  loads and returns a valid 38-class score for a nonblank synthetic JPEG; a
+- [x] Expose crop, fertilizer-rating, market, disease-image, and RAG endpoints;
+  RAG uses a small source-linked English starter corpus and is not comprehensive.
+- [~] Crop and fertilizer synthetic inference checks pass. Market smoke now
+  returns a positive finite value under XGBoost 3.2.0; this checks runtime
+  compatibility only, not forecast quality or units. The disease model loads
+  and returns a valid 38-class score for a nonblank synthetic JPEG; a
   blank-image guard rejects uniform images. A synthetic color pattern still
   received a 99.98 score, confirming that out-of-distribution screening and
-  score calibration are not solved. These are wiring checks only. The market
-  smoke check fails on an invalid non-positive forecast and emits an XGBoost
-  serialization-version warning.
+  score calibration are not solved. These are wiring checks only. Under the
+  pinned XGBoost 3.2.0 runtime the market smoke now returns a positive finite
+  value after conversion to native JSON; forecast units, horizon, and quality
+  are still unknown.
 - [x] Record artifact hashes and documented input/output fields in the model
   manifest.
+- [x] Added `ml-service/scripts/evaluate_models.py` for reproducible metrics on
+  supplied crop, fertilizer, market, and disease evaluation data. No labeled
+  regional datasets are included, so no model-quality metrics are claimed; the
+  market evaluator requires dates and uses a chronological holdout.
 - [ ] Obtain training dataset source, date range, geography, units, label
   definitions, and training code for each production model.
 - [ ] Build independent, representative evaluation datasets and report

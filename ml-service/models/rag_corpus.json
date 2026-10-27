@@ -1,0 +1,72 @@
+[
+  {
+    "id": "soil-health-card-parameters",
+    "title": "Soil Health Card: purpose and soil parameters",
+    "publisher": "Department of Agriculture & Farmers Welfare, Government of India",
+    "url": "https://soilhealth.dac.gov.in/files/FAQ_Final_English.pdf",
+    "checkedDate": "2026-10-27",
+    "sourceDate": null,
+    "scope": "India",
+    "text": "The Soil Health Card is intended to report the nutrient status of a farm holding and provide advice for maintaining soil health. The official FAQ describes 12 parameters: nitrogen (N), phosphorus (P), potassium (K), sulphur (S), zinc (Zn), iron (Fe), copper (Cu), manganese (Mn), boron (B), pH, electrical conductivity (EC), and organic carbon (OC). Compare extracted readings with the laboratory report; units and analyte basis matter. This summary does not diagnose an individual farm."
+  },
+  {
+    "id": "soil-health-card-recommendations",
+    "title": "Soil Health Card: crop-specific recommendations",
+    "publisher": "Department of Agriculture & Farmers Welfare, Government of India",
+    "url": "https://soilhealth.dac.gov.in/files/FAQ_Final_English.pdf",
+    "checkedDate": "2026-10-27",
+    "sourceDate": null,
+    "scope": "India; state recommendations may differ",
+    "text": "The Soil Health Card FAQ says the card provides nutrient status and advice on fertilizer dosage and soil amendments. Use the crop and location-specific recommendation printed on the farmer's own current Soil Health Card or obtain guidance from the state agriculture department or soil testing laboratory. A general soil rating or a KisanAI model output is not a product or dose prescription."
+  },
+  {
+    "id": "soil-health-card-cycle",
+    "title": "Soil Health Card: testing cycle stated in the FAQ",
+    "publisher": "Department of Agriculture & Farmers Welfare, Government of India",
+    "url": "https://soilhealth.dac.gov.in/files/FAQ_Final_English.pdf",
+    "checkedDate": "2026-10-27",
+    "sourceDate": null,
+    "scope": "India; confirm current local programme details",
+    "text": "The official Soil Health Card FAQ says a card is made available once in a cycle of three years to indicate soil status for that period. Programme arrangements can change, so farmers should confirm current sampling schedules with their state agriculture department or local soil testing laboratory."
+  },
+  {
+    "id": "pm-kisan-overview",
+    "title": "PM-KISAN: scheme overview and status",
+    "publisher": "Department of Agriculture & Farmers Welfare, Government of India",
+    "url": "https://pmkisan.gov.in/",
+    "checkedDate": "2026-10-27",
+    "sourceDate": null,
+    "scope": "India; individual eligibility requires official verification",
+    "text": "The PM-KISAN official portal describes income support of 6,000 rupees per year in three equal installments for eligible landholding farmer families, transferred directly to beneficiary bank accounts. State and Union Territory administrations identify eligible families under scheme guidelines, and exclusion categories apply. The portal says eKYC is mandatory for registered farmers. Do not promise eligibility or payment; ask the farmer to check Know Your Status and current guidance on the official portal."
+  },
+  {
+    "id": "enam-farmer-registration",
+    "title": "e-NAM: farmer registration",
+    "publisher": "Small Farmers' Agribusiness Consortium, Department of Agriculture & Farmers Welfare, Government of India",
+    "url": "https://enam.gov.in/resources/registration-guideline",
+    "checkedDate": "2026-10-27",
+    "sourceDate": null,
+    "scope": "India; participating mandis and local APMC approval apply",
+    "text": "The e-NAM farmer registration guidance describes online registration by selecting Farmer and an APMC, followed by submitting details for APMC approval. The e-NAM farmer page also lists registration through the portal, mobile application, or mandi registration. Steps and required documents can vary with the selected mandi; direct farmers to the current official instructions or their mandi/APMC."
+  },
+  {
+    "id": "enam-farmer-market-information",
+    "title": "e-NAM: market information and trading benefits",
+    "publisher": "Small Farmers' Agribusiness Consortium, Department of Agriculture & Farmers' Welfare, Government of India",
+    "url": "https://www.enam.gov.in/web/stakeholders-Involved/farmers",
+    "checkedDate": "2026-10-27",
+    "sourceDate": null,
+    "scope": "India; participating mandis and commodities",
+    "text": "The e-NAM farmer page describes transparent bidding, access to more markets and buyers, and information about prices and arrivals in nearby mandis. It describes a platform intended to support price discovery; it does not guarantee a higher price, a sale, or a particular payment time. Check current arrivals and prices for the specific commodity and mandi before making a sale decision."
+  },
+  {
+    "id": "pmfby-overview",
+    "title": "Pradhan Mantri Fasal Bima Yojana: purpose and coverage checks",
+    "publisher": "Department of Agriculture & Farmers Welfare, Government of India",
+    "url": "https://pmfby.gov.in/faq",
+    "checkedDate": "2026-10-27",
+    "sourceDate": null,
+    "scope": "India; notified crops, areas, seasons, and current state notices apply",
+    "text": "The PMFBY official FAQ describes crop insurance support for farmers affected by crop loss or damage from specified unforeseen events. Coverage, notified crops and areas, enrolment windows, and applicable terms are scheme- and season-specific. Do not infer that a crop or farmer is covered; verify the current notification and instructions on the official PMFBY portal or with the state agriculture department."
+  }
+]

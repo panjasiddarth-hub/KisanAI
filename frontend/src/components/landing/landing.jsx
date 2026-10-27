@@ -243,14 +243,14 @@ const AGENTS = [
         n: "03",
         icon: Stethoscope,
         title: "Disease Detection",
-        tag: "Unavailable — model not connected",
-        desc: "Disease diagnosis is disabled until a trained model artifact and evaluation are supplied. KisanAI does not provide a diagnosis or treatment through this module yet.",
+        tag: "Preliminary model screening",
+        desc: "A 38-class leaf-image model can return a preliminary screening label. It has not been validated on local field images and is not a confirmed diagnosis.",
         points: [
-            "No disease predictions are available",
-            "No chemical or organic treatment is generated",
-            "Consult a local KVK or qualified plant-health expert",
+            "Upload a clear JPG or PNG leaf photo",
+            "Scores are not calibrated confidence",
+            "Confirm with a local KVK or qualified plant-health expert",
         ],
-        sample: "Not available",
+        sample: "Experimental screening · confirm locally",
         href: "/disease",
     },
     {
@@ -486,14 +486,6 @@ function Cta() {
             <br />
             <span className="italic text-leaf">Review every suggestion.</span>
           </h2>
-          {import.meta.env.DEV && (
-            <p className="mx-auto mt-6 max-w-lg text-sm leading-relaxed text-mist">
-              Demo sign-in:{" "}
-              <span className="font-bold text-cream">siddarth@kisan.com</span> ·{" "}
-              <span className="font-bold text-cream">password123</span> — or
-              create your own account in seconds.
-            </p>
-          )}
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link to="/register" className="group inline-flex items-center gap-2.5 rounded-full bg-leaf px-8 py-4 text-sm font-bold text-ink transition-all hover:scale-[1.03] hover:shadow-[0_20px_50px_-15px_rgba(163,230,53,0.55)]">
               Get started

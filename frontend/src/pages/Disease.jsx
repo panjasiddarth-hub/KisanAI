@@ -132,9 +132,14 @@ export default function Disease() {
                   <p className="text-sm text-[var(--color-text-muted)]">Model score: {result.confidence}%</p>
                 </>
               ) : (
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  The model did not reach its {result.threshold}% screening threshold. Try a clear, close-up leaf photo.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    The model’s top score was {result.confidence}%, below the {result.threshold}% cutoff, so no disease label is shown. This does not mean the leaf is healthy.
+                  </p>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    Try a sharp, close-up photo of one leaf in good light. Field photos may differ from the images used to train this model.
+                  </p>
+                </div>
               )}
               <p className="text-xs text-[var(--color-text-muted)]">{result.disclaimer}</p>
             </div>

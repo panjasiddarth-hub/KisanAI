@@ -11,6 +11,8 @@ const farmSchema = new mongoose.Schema(
     village: { type: String, default: '' },
     district: { type: String, default: '' },
     state: { type: String, default: '' },
+    latitude: { type: Number, min: -90, max: 90 },
+    longitude: { type: Number, min: -180, max: 180 },
     area: { type: Number, required: true },
     areaUnit: { type: String, default: 'acres' },
     landOwnership: { type: String, default: '' },

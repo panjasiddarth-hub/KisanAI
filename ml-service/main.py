@@ -1,5 +1,4 @@
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from pathlib import Path
 from importlib.util import find_spec
 
 from schemas import (
@@ -16,13 +15,9 @@ from schemas import (
 from services.crop import predict_crop
 from services.disease import disease_model_available, predict_disease_image
 from services.fertilizer import predict_fertilizer
-from services.market import predict_market
-from services.rag import retrieve_documents
-
-
-# The bundled FAISS index only contains an undated local scheme CSV with no
-# primary-source URLs. Keep retrieval disabled until a curated corpus is built.
-RAG_CORPUS_VERIFIED = False
+from services.market import InvalidMarketForecastError, predict_market
+from services.rag import rag_status, retrieve_documents
+from services.soil_report import extract_soil_report_pdf
 
 
 app = FastAPI(
@@ -42,13 +37,7 @@ def root():
 
 @app.get("/health")
 def health():
-    models_dir = Path(__file__).resolve().parent / "models"
-    semantic_ready = (
-        (models_dir / "kisanai_faiss.index").exists()
-        and (models_dir / "kisanai_chunks.pkl").exists()
-        and find_spec("faiss") is not None
-        and find_spec("sentence_transformers") is not None
-    )
+    rag = rag_status()
     return {
         "status": "degraded",
         "models": {
@@ -56,8 +45,9 @@ def health():
             "fertilizer": "available",
             "market": "artifact loaded; experimental and not validated for farmer decisions",
             "disease": "available" if disease_model_available() and find_spec("tensorflow") is not None else "unavailable: model artifact or TensorFlow runtime missing",
-            "rag": "unavailable: reference corpus provenance is not verified" if not RAG_CORPUS_VERIFIED else ("available" if semantic_ready else "unavailable"),
-            "ragCorpusVerified": RAG_CORPUS_VERIFIED,
+            "rag": "available" if rag["available"] else rag["detail"],
+            "ragCorpusVerified": rag["available"],
+            "ragDetails": rag,
         },
     }
 
@@ -74,6 +64,19 @@ async def disease_prediction(image: UploadFile = File(...)):
     return predict_disease_image(image)
 
 
+@app.post("/extract/soil-report/pdf")
+async def soil_report_pdf_extraction(report: UploadFile = File(...)):
+    if report.content_type != "application/pdf":
+        raise HTTPException(status_code=415, detail="Upload a PDF for local text extraction.")
+    contents = await report.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Soil report PDFs must be 5 MB or smaller.")
+    try:
+        return extract_soil_report_pdf(contents)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
 @app.post("/predict/fertilizer", response_model=FertilizerResponse)
 def fertilizer_prediction(request: FertilizerRequest):
     return predict_fertilizer(request.model_dump())
@@ -81,15 +84,22 @@ def fertilizer_prediction(request: FertilizerRequest):
 
 @app.post("/predict/market", response_model=MarketResponse)
 def market_prediction(request: MarketRequest):
-    return predict_market(request.model_dump())
+    try:
+        return predict_market(request.model_dump())
+    except InvalidMarketForecastError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="The market model could not produce a valid forecast for these inputs. No price has been returned.",
+        ) from error
 
 
 @app.post("/predict/rag", response_model=RAGResponse)
 def rag_prediction(request: RAGRequest):
-    if not RAG_CORPUS_VERIFIED:
+    status = rag_status()
+    if not status["available"]:
         raise HTTPException(
             status_code=503,
-            detail="Knowledge retrieval is paused until its source documents and dates are verified.",
+            detail=status["detail"],
         )
     try:
         results = retrieve_documents(request.question, request.top_k)
