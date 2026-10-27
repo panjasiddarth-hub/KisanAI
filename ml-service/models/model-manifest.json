@@ -4,7 +4,7 @@
   "runtime_constraints": {
     "python": "Use a Python version supported by the pinned dependencies; the repository recommends Python 3.11-3.13.",
     "scikit_learn": "1.6.1 (pinned in requirements.txt; the serialized sklearn models were saved with this version)",
-    "xgboost_training_version": null
+    "xgboost_training_version": "3.2.0"
   },
   "artifacts": [
     {
