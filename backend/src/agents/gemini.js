@@ -5,6 +5,31 @@ import fs from 'node:fs';
 
 const TIMEOUT_MS = 15000;
 
+export function soilOcrProviderFailure(status, detail) {
+  let providerError = {};
+  try {
+    providerError = JSON.parse(detail)?.error || {};
+  } catch { /* Keep a generic message for non-JSON provider responses. */ }
+  const invalidKey = providerError.details?.some((item) => item?.reason === 'API_KEY_INVALID')
+    || /API key not valid/i.test(providerError.message || '');
+  if (invalidKey || status === 401 || status === 403) {
+    return {
+      code: 'GEMINI_OCR_INVALID_KEY',
+      message: 'Gemini rejected the configured API key. Check or replace the backend Gemini key, then try again.',
+    };
+  }
+  if (status === 429) {
+    return {
+      code: 'GEMINI_OCR_QUOTA',
+      message: 'Gemini quota or rate limit reached. Check the API project quota and billing.',
+    };
+  }
+  return {
+    code: 'GEMINI_OCR_PROVIDER_ERROR',
+    message: `Gemini could not process the report (HTTP ${status}). Check backend terminal for details.`,
+  };
+}
+
 export async function aiAnalyzeImage(crop, imagePath) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
@@ -81,12 +106,9 @@ export async function extractSoilReport(imageBuffer, mimeType) {
       // Log status and a bounded provider message to help diagnose setup errors;
       // never log the request URL, which contains the API key.
       console.error(`Gemini soil OCR failed (HTTP ${response.status}, model ${model}): ${detail.slice(0, 1000)}`);
-      const error = new Error(response.status === 401 || response.status === 403
-        ? 'Gemini rejected the API key or model access. Check the key and enabled Gemini API.'
-        : response.status === 429
-          ? 'Gemini quota or rate limit reached. Check the API project quota and billing.'
-          : `Gemini could not process the report (HTTP ${response.status}). Check backend terminal for details.`);
-      error.code = 'GEMINI_OCR_PROVIDER_ERROR';
+      const providerFailure = soilOcrProviderFailure(response.status, detail);
+      const error = new Error(providerFailure.message);
+      error.code = providerFailure.code;
       error.status = 502;
       throw error;
     }
