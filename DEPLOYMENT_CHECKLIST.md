@@ -23,11 +23,10 @@ production use.
   a 15-activity crop calendar; the synthetic test farm and plan were then deleted.
 - [x] ML artifacts have a hash manifest and a verifier that does not load the
   serialized models. The verifier also checks the disease Keras artifact hash.
-- [~] Re-ran model checks in the project Python 3.12.10 virtual environment
-  with scikit-learn 1.6.1 and XGBoost 2.1.4. Crop and fertilizer smoke checks
-  pass. Market returns an invalid (non-positive) price, and XGBoost warns that
-  the serialized model's training version is unknown; resolve those gaps before
-  calling the ML runtime verified.
+- [~] The market artifact records XGBoost 3.2.0 in its serialized booster;
+  runtime and CI requirements are now pinned to that version. Local crop,
+  fertilizer, and market smoke checks pass with XGBoost 3.2.0. The full clean
+  Python 3.12 CI run still needs to pass before calling the ML runtime verified.
 - [~] Synthetic browser journey verified farm creation, crop-context prefill,
   a validated top-three model shortlist with explanation, and calendar creation.
   A fake location could not be geocoded, so manual test weather values were
@@ -75,8 +74,9 @@ production use.
 - [x] Add a model artifact manifest with file hashes and known metadata gaps.
 - [x] Add scripts for model artifact hash verification and crop/fertilizer/
   market smoke checks.
-- [ ] Run all services from clean environments built from lockfiles or pinned
-  dependency manifests; resolve Python and XGBoost version drift.
+- [~] Run all services from clean environments built from lockfiles or pinned
+  dependency manifests. XGBoost now matches the market artifact's recorded
+  version; the clean Python 3.12 CI run remains to be confirmed.
 - [x] Add automated CI for backend checks, frontend lint/build, ML artifact
   verification, and available-model smoke checks (`.github/workflows/ci.yml`).
   The first remote Actions run still needs to complete successfully; full API

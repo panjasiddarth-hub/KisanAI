@@ -99,11 +99,8 @@ def main() -> int:
     if installed_version("scikit-learn") != "1.6.1":
         print("WARNING: runtime does not match pinned scikit-learn 1.6.1")
     xgboost_version = installed_version("xgboost")
-    try:
-        if xgboost_version != "not installed" and int(xgboost_version.split(".", 1)[0]) >= 3:
-            print("WARNING: runtime XGBoost version is outside the declared <3.0 range")
-    except ValueError:
-        print(f"WARNING: could not compare XGBoost version {xgboost_version!r} with requirements")
+    if xgboost_version != "3.2.0":
+        print(f"WARNING: runtime XGBoost {xgboost_version} does not match model artifact version 3.2.0")
     check_crop()
     check_fertilizer()
     check_market()
