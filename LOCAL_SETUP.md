@@ -77,7 +77,7 @@ number of reverse proxies in front of the API; it defaults to `0` locally.
 
 ## Current model limitations
 
-- Disease diagnosis remains unavailable until the trained disease-model artifact is added.
+- Disease screening uses a connected 38-class model candidate. It has not been validated on local field photos and must not be treated as a confirmed diagnosis or treatment recommendation.
 - Knowledge assistant replies are paused until its retrieval corpus has verified official sources and publication dates.
 - Fertilizer output is a nutrient rating, not a verified fertilizer dose.
 - Market forecasts currently use sample historical inputs.

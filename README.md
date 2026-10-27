@@ -1,47 +1,55 @@
 # 🌾 KisanAI — Sampoorn Kisan AI Sahayak
 
-Agricultural decision-support platform for Indian farmers with local crop,
-soil-nutrient, market and leaf-image screening models. Disease image screening is
-preliminary and has not been validated on local field photos.
+KisanAI is a prototype agricultural decision-support app for Indian farmers.
+Farmers can save farm details, review soil-test readings, request model-backed
+crop and soil-nutrient results, and plan crop activities. It is not yet validated
+for dependable farming decisions or production deployment.
 
 > B.Tech Major Project 2026 · Full-stack JavaScript (React + Node.js)
 
 ---
 
-## ✨ Level-1 Features (working today)
+## What is in the prototype
 
 | Feature | What it does |
 |---|---|
-| 🌱 **Crop Suggester Agent** | Soil NPK + temperature + humidity + pH + rainfall → top-3 crop classes with model scores |
-| 🧪 **Soil Nutrient Model** | Soil-test measurements → ML-predicted nutrient ratings. This artifact does not predict fertilizer application rates. |
-| 🩺 **Disease Agent** | 38-class leaf-photo screening through the MobileNetV2 `.keras` model; low-score predictions are withheld. |
-| 📅 **Farm Calendar** | Pick a crop + sowing date → a deterministic crop calendar with preparation, irrigation, scouting and harvest activities. |
-| 🔐 **Real backend auth** | JWT login/register (bcrypt-hashed). Seeded demo: `siddarth@kisan.com` / `password123` |
-| 🤖 **Model-backed prediction APIs** | Crop, fertilizer-rating, market, and semantic retrieval routes call their ML artifacts directly; there is no rule-based prediction fallback. Optional **Gemini** rewrites explanations only. |
+| **Farm profiles** | Save location, land, soil, water, crop, and reviewed soil-report information. Soil-report extraction requires a configured Gemini key and farmer review. |
+| **Crop model** | Returns three ranked crop classes from N, P, K, temperature, humidity, pH, and rainfall. Scores are not calibrated probabilities; some saved farm context is shown for review but does not affect this model ranking. |
+| **Soil-nutrient model** | Returns nine nutrient rating categories from soil-test inputs. It does not recommend fertilizer products or application doses. |
+| **Farm assessment orchestrator** | Builds crop and soil-model inputs from a saved farm, identifies missing data, validates result structure, and presents input sources and limitations. |
+| **Disease image screening** | A connected 38-class image model runs locally. It is a research candidate only: synthetic non-leaf images can receive high scores, and local field performance is unknown. Do not use it to choose treatment. |
+| **Crop calendar** | Generates and manages crop activities for supported crops. Schedules need local agronomy review before being treated as instructions. |
+| **Accounts and persistence** | JWT authentication, user-scoped farm records, MongoDB support, and a local in-memory development mode. |
 
-Plus the full app shell: dashboard, dark mode, notifications, farms/crops management,
-market/schemes/weather/analytics pages. Market forecasts currently use sample historical inputs.
+The app also includes weather, market, schemes, analytics, and assistant screens.
+Availability and evidence quality differ by feature; see the limitations below.
 
 ## 🧱 Architecture
 
 ```
-frontend/  React 19 · Vite 8 · Tailwind v4 · react-router 7 · axios · chart.js
-   │  calls /api (vite proxy → :5000)
-backend/   Node.js · Express · JWT (jsonwebtoken) · bcryptjs · multer · mongoose
-   ├── src/agents/    ML output validation · source-grounded Gemini answers
-   ├── src/routes/    API endpoints
-   ├── src/data/      agronomy knowledge bases
-   └── src/database/  MongoDB connection · Mongoose models · persistence store
-ml-service/ Python ML models and retrieval service
+Farmer → React web app → Express API (authentication, farm data, orchestration)
+                               ├── FastAPI ML service → crop/fertilizer models
+                               │                     ├→ market model (experimental)
+                               │                     └→ disease image model (candidate)
+                               ├── MongoDB (or in-memory local demo store)
+                               └── weather / optional Gemini services
 ```
+
+The farm orchestrator currently runs the crop and soil-nutrient agents. Disease
+screening takes a separate image-upload path. Market outputs are blocked when
+the model returns an invalid price. RAG is paused until its reference corpus has
+verified sources and publication dates.
 
 ## 🚀 Quick start (three terminals)
 
-**Prereqs:** Node.js 20.19+ or 22 LTS, and Python 3.11–3.13 with the ML dependencies installed.
+**Prerequisites:** Node.js 20.19+ or 22 LTS, Python 3.12 recommended, and
+internet access for the first dependency installation.
 
 ```bash
-# Terminal 1 — ML API (required for predictions)
+# Terminal 1 — ML API (required for model predictions)
 cd ml-service
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -50,7 +58,7 @@ python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 # Terminal 2 — backend API
 cd backend
 npm install
-npm start           # http://localhost:5000  (in-memory mode, no DB needed)
+npm start            # http://localhost:5000
 
 # Terminal 3 — frontend
 cd frontend
@@ -58,9 +66,15 @@ npm install
 npm run dev         # http://localhost:5173
 ```
 
-Open http://localhost:5173 → login with **siddarth@kisan.com / password123**.
+Open the URL printed by Vite (normally `http://localhost:5173`). In local
+development, the backend seeds a demo account: `siddarth@kisan.com` /
+`password123`. This account is for local development only; never use its
+credentials in a public deployment.
 
-## 🔧 Optional configuration (`backend/.env`, see `.env.example`)
+For the complete Windows setup, including health checks and troubleshooting,
+see [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
+
+## 🔧 Optional configuration (`backend/.env`, see [`backend/.env.example`](./backend/.env.example))
 
 | Variable | Purpose |
 |---|---|
@@ -73,50 +87,49 @@ Open http://localhost:5173 → login with **siddarth@kisan.com / password123**.
 | `CORS_ORIGINS` | Comma-separated exact frontend origins; required in production |
 | `TRUST_PROXY_HOPS` | Verified reverse-proxy hop count; defaults to `0` |
 
-Production also requires `MONGODB_URI`. The demo user is local-development
-only; production startup will not create it and will stop if its public default
-password remains active in the configured database.
+Production requires a managed database, a random JWT secret of at least 32
+characters, exact frontend CORS origins, and deployment-specific secrets. Never
+commit `.env` files. Production startup does not seed the demo user and rejects
+its public default password.
 
 Crop predictions require N, P, K, temperature, humidity, pH, and rainfall inputs.
-The fertilizer model predicts nutrient ratings from a full soil-test report; it does
-not produce fertilizer application rates. The market model currently receives sample
-historical price inputs. Disease image screening requires TensorFlow and
-`ml-service/models/disease_model.keras`; its score is not calibrated and it is not
-a confirmed diagnosis. Ask a local agricultural expert before taking treatment action.
+Model outputs are preliminary. Crop scores, fertilizer categories, disease
+scores, and market forecasts have not all been independently validated for local
+farms. Consult local agricultural expertise before acting on recommendations.
 
 Frontend `.env` (optional): `VITE_API_URL=http://localhost:5000/api` — only needed if you
 deploy the API elsewhere; locally the Vite proxy handles `/api` for you.
 
-## 🔌 API summary
+## API overview
 
 ```
-POST /api/auth/register        { name, email, password } → { token, user }
-POST /api/auth/login           { email, password }       → { token, user }
-GET  /api/auth/me              Bearer token              → { user }
-POST /api/auth/logout          Bearer token              → revoke account sessions
-POST /api/auth/change-password current + new password    → new token, revoke other sessions
-GET  /api/auth/export          Bearer token              → account/farm/crop/calendar JSON export
-DELETE /api/auth/account       password + email confirm  → delete account-owned records
-
-GET  /api/agents/meta          form metadata (soils, seasons, crops, symptoms)
-POST /api/agents/crop          { soilType, ph, season, irrigation } → ranked crops
-POST /api/agents/fertilizer    { crop, areaAcres, soilType }        → NPK plan
-POST /api/agents/disease       multipart image (JPEG/PNG) → preliminary leaf-image screening
-POST /api/orchestrator         { question, language } → semantic sources + grounded answer when Gemini is configured
-POST /api/orchestrator         { crop?, fertilizer?, market?, rag? } → requested agent results + validation + evidence explanations
-
-GET    /api/calendar           Bearer → my plans
-POST   /api/calendar/generate  Bearer { crop, sowingDate, areaAcres } → plan
-PATCH  /api/calendar/:id/events/:i   { done } or { date } → update a task
-DELETE /api/calendar/:id
+POST /api/auth/register             Create an account
+POST /api/auth/login                Sign in
+GET  /api/auth/me                   Current signed-in user
+GET  /api/agents/meta               Agent form metadata and availability
+POST /api/agents/crop               Crop-model prediction (authenticated)
+POST /api/agents/fertilizer         Nutrient-rating prediction (authenticated)
+POST /api/agents/disease            JPEG/PNG image screening (authenticated)
+GET  /api/farms                     List signed-in user's farms
+POST /api/farms                     Create a farm
+POST /api/farms/soil-report/extract Extract soil readings for farmer review
+POST /api/orchestrator/farm         Assess a saved farm with selected agents
+POST /api/orchestrator              Run supported direct agent requests
+GET  /api/calendar                  List signed-in user's crop plans
+POST /api/calendar/generate         Generate a crop activity plan
+GET  /api/health                    Backend health
 ```
 
 ## 🗺️ Roadmap
 
-- **Next** — verify orchestrator against a running ML API, improve expert-reviewed validation,
-  add browser-supported voice input/output and source-grounded multilingual chat
-- **Later** — disease model field validation and expert-reviewed guidance, reliable live weather and mandi feeds,
-  field pilots, production monitoring, SMS/WhatsApp alerts, and supported model retraining
+- **Next** — verify the farm orchestrator end to end against running services,
+  resolve the market-model failure, and evaluate crop/fertilizer models with
+  local experts and representative data.
+- **Then** — validate disease screening on local field images, improve soil
+  report PDF/photo extraction, and verify official advisory and weather sources.
+- **Before wider launch** — pilot with farmers, add reviewed translations and
+  voice interactions, production monitoring, support, backups, and deployment
+  rollback procedures.
 
 See [`DEPLOYMENT_CHECKLIST.md`](./DEPLOYMENT_CHECKLIST.md) for the complete
 deployment-readiness checklist, current status, priorities, and release gate.
@@ -153,22 +166,26 @@ KisanAI/
 
 See [`ml-service/README.md`](./ml-service/README.md) for running the ML API.
 
-## Continuous integration
+## Checks and model limitations
 
-GitHub Actions runs backend tests, frontend lint/build, model-artifact hash
-verification, and crop/fertilizer/market inference smoke checks on pushes and
-pull requests. The CI ML job uses Python 3.12 and `ml-service/requirements-ci.txt`
-to keep artifact checks quicker than installing the full retrieval runtime.
-The first hosted Actions run still needs to be observed before treating CI as
-an established deployment gate.
+The repository includes a GitHub Actions workflow for backend checks, frontend
+lint/build, artifact-hash verification, and ML smoke checks. Review the Actions
+run on GitHub after pushes; a configured workflow is not evidence that a release
+has passed.
 
-## 🧪 Current checks
+- Crop and fertilizer synthetic smoke checks pass; this does not establish
+  accuracy or suitability for a particular farm.
+- The market smoke check currently fails because a sample produces a
+  non-positive forecast. The API rejects that value; do not use market output
+  for farmer decisions yet.
+- The disease artifact loads and returns a 38-class result. A blank-image guard
+  rejects uniform images, but synthetic non-leaf patterns can still receive
+  high scores. Field evaluation and score calibration are required.
+- Fertilizer outputs are nutrient categories, not product or dose advice.
+- RAG is disabled pending a verified, dated, source-linked knowledge corpus.
+- The farm orchestrator needs a live end-to-end check with backend and ML
+  services running together.
 
-- Crop, fertilizer-rating, and market model artifacts each loaded and returned a sample prediction in the local Python environment.
-- Backend orchestrator tests pass for categorical inputs, invalid calendar values, incomplete nutrient outputs, and validation blocking.
-- Authenticated API smoke checks passed for login, farm listing, and crop/fertilizer/market orchestration; unauthenticated orchestrator access returns HTTP 401.
-- Semantic RAG retrieval returned results from the FAISS index.
-- Frontend lint and production build pass.
-- Disease model loading and a synthetic image inference returned 38 class scores; the full API/browser journey still needs local-server verification.
-- Orchestrator source passes Node syntax checks; frontend lint and production build passed in earlier local checks.
-- Gemini-grounded explanations and the complete browser-driven farm-to-calendar journey still need end-to-end verification.
+See [`DEPLOYMENT_CHECKLIST.md`](./DEPLOYMENT_CHECKLIST.md) for the full audit,
+remaining work, and release gate. See [`PILOT_SCOPE.md`](./PILOT_SCOPE.md) for
+the proposed supervised pilot boundary.
