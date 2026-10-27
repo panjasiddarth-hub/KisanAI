@@ -42,12 +42,12 @@ router.get('/', async (req, res, next) => {
 router.post('/soil-report/extract', soilReportUpload.single('report'), async (req, res, next) => {
   try {
     if (req.body?.consentToAIProcessing !== 'true') {
-      return res.status(400).json({ error: 'Confirm that the report image may be sent to the configured AI service for extraction.' });
+      return res.status(400).json({ error: 'Confirm that the report file may be sent to the configured AI service for extraction.' });
     }
-    if (!req.file) return res.status(400).json({ error: 'Choose a soil report image to scan.' });
+    if (!req.file) return res.status(400).json({ error: 'Choose a soil report file to scan.' });
     const mimeType = verifiedSoilReportMime(req.file.buffer);
     if (!mimeType) {
-      return res.status(415).json({ error: 'The uploaded file is not a supported image.' });
+      return res.status(415).json({ error: 'The uploaded file is not a supported PDF or image.' });
     }
     if (!process.env.GEMINI_API_KEY) {
       return res.status(503).json({ error: 'Soil report scanning is not configured. You can still enter report values manually.' });

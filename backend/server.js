@@ -67,7 +67,7 @@ app.use((err, _req, res, _next) => {
   const uploadLimitError = typeof err.code === 'string' && err.code.startsWith('LIMIT_');
   const status = err.status || (err.code === 'LIMIT_FILE_SIZE' ? 413 : uploadLimitError ? 400 : 500);
   const message = err.code === 'LIMIT_FILE_SIZE'
-    ? 'Uploaded image must be 5 MB or smaller.'
+    ? 'Uploaded file must be 5 MB or smaller.'
     : err.status ? err.message : uploadLimitError ? 'Invalid upload request.' : 'Server error';
   if (status >= 500) console.error(err);
   res.status(status).json({ error: message });
