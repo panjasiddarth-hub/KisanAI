@@ -1,6 +1,5 @@
 from pathlib import Path
 import math
-
 import joblib
 import pandas as pd
 
@@ -78,15 +77,13 @@ def predict_market(data: dict):
     ]
 
     prediction = float(model.predict(model_input)[0])
-    model_source = "market_xgboost"
     if not math.isfinite(prediction) or prediction <= 0:
-        prediction = row["rolling_mean_3"]
-        model_source = "rolling_mean_fallback"
+        raise ValueError("Market model returned an invalid price prediction")
 
     return {
         "predicted_price": round(prediction, 2),
         "Commodity": row["Commodity"],
         "Market": row["Market"],
         "State": row["State"],
-        "modelSource": model_source
+        "modelSource": "market_xgboost"
     }

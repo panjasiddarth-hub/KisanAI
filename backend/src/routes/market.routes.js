@@ -1,9 +1,9 @@
 import { Router } from 'express';
+import { dispatchAgent } from '../agents/orchestratorService.js';
+import { createRateLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
-
-const ML_SERVICE_URL =
-  process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000';
+router.use(createRateLimiter({ name: 'market', windowMs: 15 * 60 * 1000, limit: 30 }));
 
 // These values will temporarily provide the historical features
 // required by the trained XGBoost model.
@@ -45,41 +45,6 @@ const MARKET_INPUTS = [
   },
 ];
 
-const NEARBY_MARKETS = [
-  {
-    name: 'Nashik APMC',
-    distance: '12 km',
-    rating: 4.5,
-    speciality: 'Grapes, Onion, Tomato',
-    timing: '6 AM – 2 PM',
-    days: 'Mon–Sat',
-  },
-  {
-    name: 'Lasalgaon APMC',
-    distance: '28 km',
-    rating: 4.8,
-    speciality: "Asia's largest onion market",
-    timing: '5 AM – 12 PM',
-    days: 'All days',
-  },
-  {
-    name: 'Pune APMC (Gultekdi)',
-    distance: '75 km',
-    rating: 4.3,
-    speciality: 'Vegetables, Fruits, Grains',
-    timing: '4 AM – 10 AM',
-    days: 'All days',
-  },
-  {
-    name: 'Ahmednagar APMC',
-    distance: '95 km',
-    rating: 4.1,
-    speciality: 'Sugarcane, Soybean',
-    timing: '7 AM – 3 PM',
-    days: 'Mon–Fri',
-  },
-];
-
 function getMarketFeatures(lastPrices) {
   const [lag1, lag2, lag3] = lastPrices;
 
@@ -118,31 +83,16 @@ router.get('/', async (_req, res, next) => {
         const historical = getMarketFeatures(item.lastPrices);
 
         try {
-          const mlResponse = await fetch(
-            `${ML_SERVICE_URL}/predict/market`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                ...historical,
-                month,
-                day_of_year: dayOfYear,
-                Commodity: item.commodity,
-                Market: item.market,
-                State: item.state,
-              }),
-            }
-          );
-
-          if (!mlResponse.ok) {
-            throw new Error(
-              `ML service returned ${mlResponse.status}`
-            );
-          }
-
-          const prediction = await mlResponse.json();
+          const run = await dispatchAgent('market', {
+            ...historical,
+            month,
+            day_of_year: dayOfYear,
+            Commodity: item.commodity,
+            Market: item.market,
+            State: item.state,
+          });
+          if (run.error) throw new Error(run.error);
+          const prediction = run.result;
 
           return {
             crop: item.crop,
@@ -151,6 +101,7 @@ router.get('/', async (_req, res, next) => {
             market: item.market,
             quality: 'Standard',
             modelSource: prediction.modelSource,
+            inputSource: 'sample_historical_prices',
           };
         } catch (error) {
           console.error(
@@ -165,6 +116,7 @@ router.get('/', async (_req, res, next) => {
             market: item.market,
             quality: 'Standard',
             modelSource: 'unavailable',
+            inputSource: 'sample_historical_prices',
           };
         }
       })
@@ -172,7 +124,7 @@ router.get('/', async (_req, res, next) => {
 
     res.json({
       prices,
-      nearbyMarkets: NEARBY_MARKETS,
+      inputNotice: 'Forecast inputs are sample historical prices, not live mandi data.',
     });
   } catch (error) {
     next(error);

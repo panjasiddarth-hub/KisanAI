@@ -1,20 +1,36 @@
 // src/pages/Farms.jsx
 // Farm management — list, add, edit, delete
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFarms } from '../hooks/useFarms';
 import { useAuth } from '../context/AuthContext';
 import { useForm } from 'react-hook-form';
+import { api } from '../api/client';
 import PageHeader from '../components/ui/PageHeader';
 import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
-import ProgressBar from '../components/ui/ProgressBar';
+import GovernmentAdvisoryLink from '../components/farm/GovernmentAdvisoryLink';
 import toast from 'react-hot-toast';
-import { Warehouse, Plus, Edit2, Trash2, MapPin, Ruler, Droplets, Loader2, ArrowLeft, ArrowRight, Check, Sprout } from 'lucide-react';
+import { Warehouse, Plus, Edit2, Trash2, MapPin, Ruler, Droplets, Loader2, ArrowLeft, ArrowRight, Check, Sprout, Camera, X, FlaskConical, Leaf, FileText, ScanSearch } from 'lucide-react';
 
 const SOIL_TYPES = ['Black Cotton', 'Red Laterite', 'Alluvial', 'Sandy', 'Clay', 'Loamy'];
 const WATER_SOURCES = ['Borewell', 'Canal', 'River', 'Rain-fed', 'Drip Irrigation', 'Pond'];
+const SOIL_REPORT_FIELDS = [
+  { key: 'soilPH', label: 'pH', unit: '' },
+  { key: 'soilEC', label: 'EC', unit: 'dS/m' },
+  { key: 'soilOC', label: 'Organic carbon', unit: '%' },
+  { key: 'soilN', label: 'Nitrogen (N)', unit: 'kg/ha' },
+  { key: 'soilP', label: 'Phosphorus (P)', unit: 'kg/ha' },
+  { key: 'soilK', label: 'Potassium (K)', unit: 'kg/ha' },
+  { key: 'soilS', label: 'Sulphur (S)', unit: 'ppm' },
+  { key: 'soilZn', label: 'Zinc (Zn)', unit: 'ppm' },
+  { key: 'soilB', label: 'Boron (B)', unit: 'ppm' },
+  { key: 'soilFe', label: 'Iron (Fe)', unit: 'ppm' },
+  { key: 'soilCu', label: 'Copper (Cu)', unit: 'ppm' },
+  { key: 'soilMn', label: 'Manganese (Mn)', unit: 'ppm' },
+];
+const EXTRA_SOIL_FIELDS = SOIL_REPORT_FIELDS.filter(({ key }) => !['soilPH', 'soilN', 'soilP', 'soilK'].includes(key));
 const STEPS = [
   { title: 'Farmer', fields: ['farmerName', 'name', 'village', 'state'] },
   { title: 'Land', fields: ['area', 'areaUnit', 'landOwnership', 'soilType', 'soilPH'] },
@@ -22,6 +38,35 @@ const STEPS = [
   { title: 'Plan', fields: ['season'] },
 ];
 const IRRIGATION_METHODS = ['Flood / furrow', 'Drip', 'Sprinkler', 'Rainfed'];
+
+function soilReportUnitMatches(field, unit) {
+  const value = String(unit || '').trim().toLowerCase().replace(/\s+/g, '');
+  if (field === 'soilPH') return !value || value === 'ph';
+  if (field === 'soilEC') return value === 'ds/m' || value === 'dsm-1';
+  if (field === 'soilOC') return value === '%' || value === 'percent';
+  if (['soilN', 'soilP', 'soilK'].includes(field)) return /^kg\/ha$/i.test(value);
+  return value === 'ppm';
+}
+
+function compressFarmPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      const scale = Math.min(1, 1400 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+      if (dataUrl.length > 1_400_000) reject(new Error('This photo is still too large. Please choose a smaller image.'));
+      else resolve(dataUrl);
+    };
+    image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('This photo could not be opened. Try another image.')); };
+    image.src = objectUrl;
+  });
+}
 
 function FormField({ label, error, children }) {
   return (
@@ -33,15 +78,15 @@ function FormField({ label, error, children }) {
   );
 }
 
-function FarmCard({ farm, onEdit, onDelete, onRecommend }) {
+function FarmCard({ farm, onEdit, onDelete, onRecommend, onAssess }) {
   return (
     <div className="card p-5 fade-in group">
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow">
-            <Warehouse className="w-5 h-5 text-white" />
-          </div>
+          {farm.images?.[0]
+            ? <img src={farm.images[0]} alt={`${farm.name} farm`} className="w-11 h-11 rounded-xl object-cover shadow" />
+            : <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow"><Warehouse className="w-5 h-5 text-white" /></div>}
           <div>
             <h3 className="font-bold text-sm text-[var(--color-text)]">{farm.name}</h3>
             <div className="flex items-center gap-1 text-[var(--color-text-muted)]">
@@ -76,7 +121,30 @@ function FarmCard({ farm, onEdit, onDelete, onRecommend }) {
             <p className="text-xs font-bold text-[var(--color-text)]">{farm.waterSource}</p>
           </div>
         </div>
+        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-slate-700/30">
+          <Sprout className="w-4 h-4 text-green-600 shrink-0" />
+          <div>
+            <p className="text-[0.65rem] text-[var(--color-text-muted)]">Soil</p>
+            <p className="text-xs font-bold text-[var(--color-text)]">{farm.soilType || 'Not recorded'}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-slate-700/30">
+          <Leaf className="w-4 h-4 text-amber-600 shrink-0" />
+          <div>
+            <p className="text-[0.65rem] text-[var(--color-text-muted)]">Season</p>
+            <p className="text-xs font-bold text-[var(--color-text)]">{farm.season || 'Not recorded'}</p>
+          </div>
+        </div>
       </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-[var(--color-border)] px-3 py-2.5">
+        <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]"><FlaskConical className="h-3.5 w-3.5" /> Soil test</span>
+        <span className="text-xs font-semibold text-[var(--color-text)]">{farm.soilN != null && farm.soilP != null && farm.soilK != null ? `N ${farm.soilN} · P ${farm.soilP} · K ${farm.soilK}` : 'Readings not added'}</span>
+      </div>
+      {(farm.soilPH != null || farm.soilN != null || farm.soilP != null || farm.soilK != null) && <p className="-mt-3 mb-4 text-[0.65rem] text-[var(--color-text-muted)]">
+        Source: {[...new Set(Object.values(farm.soilSources || {}))].map(source => source === 'soil_report_reviewed' ? 'farmer-reviewed soil report' : 'entered by farmer').join(' · ') || 'not recorded'}
+        {farm.soilTestDate ? ` · tested ${farm.soilTestDate}` : ''}
+      </p>}
 
       <div className="flex gap-1 flex-wrap mb-4">
         {(farm.crops || []).map(c => (
@@ -87,17 +155,17 @@ function FarmCard({ farm, onEdit, onDelete, onRecommend }) {
         )}
       </div>
 
+      <button type="button" onClick={() => onAssess(farm)} className="mb-2 block text-sm font-bold text-emerald-700 hover:text-emerald-800">
+        Run farm assessment
+      </button>
       <button type="button" onClick={() => onRecommend(farm)} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-green-700 hover:text-green-800">
         <Sprout className="h-4 w-4" />
         {farm.crops?.length ? 'Find another crop' : 'Get crop recommendations'}
       </button>
 
-      {/* Health */}
-      <ProgressBar value={farm.healthScore || 75} label="Farm Health" color={farm.healthScore >= 80 ? 'green' : farm.healthScore >= 60 ? 'yellow' : 'red'} />
+      <GovernmentAdvisoryLink farm={farm} compact />
 
-      <p className="text-[0.65rem] text-[var(--color-text-muted)] mt-3">
-        Last updated: {farm.lastUpdated}
-      </p>
+      <p className="text-[0.65rem] text-[var(--color-text-muted)] mt-3">Previous crop: {farm.previousCrop || 'Not recorded'}</p>
     </div>
   );
 }
@@ -116,6 +184,17 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
       district: defaultValues.district || (locationParts.length > 2 ? locationParts[1] : ''),
       state: defaultValues.state || (locationParts.length > 1 ? locationParts.at(-1) : ''),
       soilPH: defaultValues.soilPH ?? '',
+      soilEC: defaultValues.soilEC ?? '',
+      soilOC: defaultValues.soilOC ?? '',
+      soilN: defaultValues.soilN ?? '',
+      soilP: defaultValues.soilP ?? '',
+      soilK: defaultValues.soilK ?? '',
+      soilS: defaultValues.soilS ?? '',
+      soilZn: defaultValues.soilZn ?? '',
+      soilB: defaultValues.soilB ?? '',
+      soilFe: defaultValues.soilFe ?? '',
+      soilCu: defaultValues.soilCu ?? '',
+      soilMn: defaultValues.soilMn ?? '',
       cropsText: (defaultValues.crops || []).join(', '),
     }
     : {
@@ -128,6 +207,17 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
       landOwnership: 'Owned',
       soilType: SOIL_TYPES[0],
       soilPH: '',
+      soilEC: '',
+      soilOC: '',
+      soilN: '',
+      soilP: '',
+      soilK: '',
+      soilS: '',
+      soilZn: '',
+      soilB: '',
+      soilFe: '',
+      soilCu: '',
+      soilMn: '',
       waterSource: WATER_SOURCES[0],
       waterAvailability: 'Seasonal',
       irrigationMethods: [],
@@ -137,9 +227,83 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
       cultivationMethod: 'Conventional',
       crops: [],
     };
-  const { register, handleSubmit, trigger, formState: { errors } } = useForm({ defaultValues: initialValues });
+  const { register, handleSubmit, trigger, setValue, formState: { errors } } = useForm({ defaultValues: initialValues });
   const [step, setStep] = useState(0);
+  const [farmPhoto, setFarmPhoto] = useState(defaultValues?.images?.[0] || '');
+  const [soilReport, setSoilReport] = useState(null);
+  const [soilReportBusy, setSoilReportBusy] = useState(false);
+  const [soilReportConsent, setSoilReportConsent] = useState(false);
+  const [soilSources, setSoilSources] = useState(() => ({ ...(defaultValues?.soilSources || {}) }));
+  const soilReportInput = useRef(null);
+  const photoInput = useRef(null);
   const isEditing = Boolean(defaultValues);
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Choose an image file for the farm photo.'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Choose a photo smaller than 10 MB.'); return; }
+    try { setFarmPhoto(await compressFarmPhoto(file)); }
+    catch (error) { toast.error(error.message || 'Could not read this photo.'); }
+  };
+
+  const scanSoilReport = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Choose a PDF, JPG, PNG, or WebP soil report.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Choose a soil report file smaller than 5 MB.');
+      return;
+    }
+    if (!soilReportConsent) {
+      toast.error('Please allow the report file to be processed by the configured AI service first.');
+      return;
+    }
+    setSoilReportBusy(true);
+    try {
+      const body = new FormData();
+      body.append('report', file);
+      body.append('consentToAIProcessing', 'true');
+      const { data } = await api.post('/farms/soil-report/extract', body);
+      setSoilReport(data.extraction);
+      toast.success('Report scanned. Review each value before applying it.');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Could not scan this report. Enter the values manually.');
+    } finally {
+      setSoilReportBusy(false);
+    }
+  };
+
+  const applySoilExtraction = () => {
+    if (!soilReport) return;
+    const fields = SOIL_REPORT_FIELDS.map(({ key }) => key);
+    const copiedFields = [];
+    for (const field of fields) {
+      const item = soilReport[field];
+      if (item?.value == null) continue;
+      if (!soilReportUnitMatches(field, item.unit)) continue;
+      setValue(field, String(item.value), { shouldDirty: true, shouldValidate: true });
+      copiedFields.push(field);
+    }
+    if (soilReport.soilTestDate) setValue('soilTestDate', soilReport.soilTestDate, { shouldDirty: true });
+    setSoilSources(current => ({ ...current, ...Object.fromEntries(copiedFields.map(field => [field, 'soil_report_reviewed'])) }));
+    toast.success('Clear readings were copied. Check the values and units before saving.');
+  };
+
+  const markSoilFieldSource = (field, value) => {
+    setSoilSources(current => {
+      const next = { ...current };
+      if (value === '') delete next[field];
+      else next[field] = 'farmer_entered';
+      return next;
+    });
+  };
 
   const nextStep = async () => {
     if (await trigger(STEPS[step].fields)) setStep(current => Math.min(current + 1, STEPS.length - 1));
@@ -150,7 +314,20 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
       ...data,
       area: Number(data.area),
       soilPH: data.soilPH === '' ? undefined : Number(data.soilPH),
+      soilEC: data.soilEC === '' ? undefined : Number(data.soilEC),
+      soilOC: data.soilOC === '' ? undefined : Number(data.soilOC),
+      soilN: data.soilN === '' ? undefined : Number(data.soilN),
+      soilP: data.soilP === '' ? undefined : Number(data.soilP),
+      soilK: data.soilK === '' ? undefined : Number(data.soilK),
+      soilS: data.soilS === '' ? undefined : Number(data.soilS),
+      soilZn: data.soilZn === '' ? undefined : Number(data.soilZn),
+      soilB: data.soilB === '' ? undefined : Number(data.soilB),
+      soilFe: data.soilFe === '' ? undefined : Number(data.soilFe),
+      soilCu: data.soilCu === '' ? undefined : Number(data.soilCu),
+      soilMn: data.soilMn === '' ? undefined : Number(data.soilMn),
+      soilSources,
       crops: defaultValues?.crops || [],
+      images: farmPhoto ? [farmPhoto] : [],
       location: [data.village, data.district, data.state].filter(Boolean).join(', '),
     };
     await onSubmit(payload);
@@ -183,6 +360,22 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
             <input className="input" placeholder="e.g., Shri Ram Farm" {...register('name', { required: 'Farm name is required' })} />
           </FormField>
         </div>
+        <FormField label="Farm photo (optional)">
+          <input ref={photoInput} type="file" accept="image/*" onChange={handlePhotoChange} className="sr-only" aria-label="Choose a farm photo" />
+          {farmPhoto ? (
+            <div className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] p-2.5">
+              <img src={farmPhoto} alt="Farm photo preview" className="h-16 w-24 rounded-lg object-cover" />
+              <span className="flex-1 text-xs text-[var(--color-text-muted)]">Photo ready to save with this farm</span>
+              <button type="button" onClick={() => setFarmPhoto('')} aria-label="Remove farm photo" className="rounded-lg p-2 text-[var(--color-text-muted)] hover:bg-red-50 hover:text-red-600"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => photoInput.current?.click()} className="text-xs font-semibold text-green-700">Change</button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => photoInput.current?.click()} className="flex w-full items-center gap-3 rounded-xl border border-dashed border-[var(--color-border)] px-4 py-3 text-left hover:border-green-500 hover:bg-green-50/50 dark:hover:bg-green-950/20">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100 text-green-700"><Camera className="h-5 w-5" /></span>
+              <span><span className="block text-sm font-semibold text-[var(--color-text)]">Add a farm photo</span><span className="mt-0.5 block text-xs text-[var(--color-text-muted)]">Optional · JPG, PNG, or another image · up to 10 MB</span></span>
+            </button>
+          )}
+        </FormField>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <FormField label="Village / town *" error={errors.village}>
             <input className="input" {...register('village', { required: 'Village or town is required' })} />
@@ -200,6 +393,38 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
         <div>
           <h4 className="font-semibold text-[var(--color-text)]">Land and soil</h4>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">Soil and plot size inform crop and input recommendations.</p>
+        </div>
+        <div className="rounded-xl border border-green-200 bg-green-50/70 p-3 dark:border-green-900/50 dark:bg-green-950/20">
+          <div className="flex items-start gap-2">
+            <FileText className="mt-0.5 h-4 w-4 shrink-0 text-green-700" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[var(--color-text)]">Have a soil test report?</p>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">Upload the soil test PDF or a clear JPG, PNG, or WebP scan. KisanAI extracts pH and nutrient readings; you review them before saving, and unclear values stay blank.</p>
+              <label className="mt-2 flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
+                <input type="checkbox" checked={soilReportConsent} onChange={event => setSoilReportConsent(event.target.checked)} className="mt-0.5 accent-green-700" />
+                <span>I agree to send this report file to the configured Gemini AI service for text extraction. KisanAI does not save the file; extracted values are shown for my review.</span>
+              </label>
+              <input ref={soilReportInput} type="file" accept="application/pdf,.pdf,image/jpeg,image/png,image/webp" onChange={scanSoilReport} className="sr-only" aria-label="Choose a soil test report PDF or image" />
+              <button type="button" onClick={() => soilReportInput.current?.click()} disabled={!soilReportConsent || soilReportBusy} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-green-700 px-3 py-2 text-xs font-semibold text-green-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-green-300">
+                {soilReportBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
+                {soilReportBusy ? 'Reading report…' : 'Scan soil report PDF or image'}
+              </button>
+              {!soilReportConsent && <p className="mt-1 text-[0.68rem]">Optional. You can continue by entering known values below.</p>}
+            </div>
+          </div>
+          {soilReport && <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <p className="text-xs font-bold text-[var(--color-text)]">Check extracted readings</p>
+            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-[var(--color-text-muted)]">
+              {SOIL_REPORT_FIELDS.map(({ key, label }) => {
+                const item = soilReport[key];
+                const compatibleUnit = soilReportUnitMatches(key, item?.unit);
+                return <p key={key}><b>{label}:</b> {item?.value ?? 'Not read'}{item?.unit ? ` ${item.unit}` : ''}{item?.value != null && !compatibleUnit ? ' · unit needs review' : ''}{item?.value != null ? ` · ${item.confidence} read` : ''}</p>;
+              })}
+              <p className="col-span-2"><b>Test date:</b> {soilReport.soilTestDate || 'Not read'}</p>
+            </div>
+            <p className="mt-2 text-[0.68rem] leading-relaxed text-amber-800 dark:text-amber-300">Values are copied only when the printed unit matches the model input unit. Other units need a verified conversion. OCR can make mistakes—compare every value with the report.</p>
+            <button type="button" onClick={applySoilExtraction} className="mt-2 rounded-lg bg-green-700 px-3 py-2 text-xs font-semibold text-white">Copy clear values to form</button>
+          </div>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Cultivated area *" error={errors.area}>
@@ -224,11 +449,36 @@ function FarmForm({ defaultValues, farmer, onSubmit, submitting }) {
             </select>
           </FormField>
           <FormField label="Soil pH (if known)" error={errors.soilPH}>
-            <input type="number" step="0.1" min="0" max="14" className="input" placeholder="0-14" {...register('soilPH', { min: { value: 0, message: 'pH must be 0-14' }, max: { value: 14, message: 'pH must be 0-14' } })} />
+            <input type="number" step="0.1" min="0" max="14" className="input" placeholder="0-14" {...register('soilPH', { min: { value: 0, message: 'pH must be 0-14' }, max: { value: 14, message: 'pH must be 0-14' }, onChange: event => markSoilFieldSource('soilPH', event.target.value) })} />
           </FormField>
+          <div className="sm:col-span-2">
+            <p className="text-xs text-[var(--color-text-muted)] mb-2">Optional soil-test values (kg/ha). Enter these once from your lab report; crop recommendations can reuse them.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                ['soilN', 'Nitrogen (N)'],
+                ['soilP', 'Phosphorus (P)'],
+                ['soilK', 'Potassium (K)'],
+              ].map(([key, label]) => (
+                <FormField key={key} label={label} error={errors[key]}>
+                  <input type="number" min="0" step="any" className="input" placeholder="From soil report" {...register(key, { min: { value: 0, message: 'Value must be zero or greater' }, onChange: event => markSoilFieldSource(key, event.target.value) })} />
+                </FormField>
+              ))}
+            </div>
+          </div>
           <FormField label="Last soil test date" error={errors.soilTestDate}>
             <input type="date" className="input" {...register('soilTestDate')} />
           </FormField>
+          <details className="sm:col-span-2 rounded-xl border border-[var(--color-border)] p-3">
+            <summary className="cursor-pointer text-xs font-semibold text-[var(--color-text)]">Other soil lab measurements (optional)</summary>
+            <p className="mt-2 text-[0.68rem] text-[var(--color-text-muted)]">Use the exact units printed on your report. These readings help prefill the soil nutrient model.</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {EXTRA_SOIL_FIELDS.map(({ key, label, unit }) => (
+                <FormField key={key} label={`${label}${unit ? ` (${unit})` : ''}`} error={errors[key]}>
+                  <input type="number" min="0" max={['soilEC', 'soilOC'].includes(key) ? 100 : undefined} step="any" className="input" placeholder="From soil report" {...register(key, { min: { value: 0, message: 'Value must be zero or greater' }, max: ['soilEC', 'soilOC'].includes(key) ? { value: 100, message: 'Value must be 100 or less' } : undefined, onChange: event => markSoilFieldSource(key, event.target.value) })} />
+                </FormField>
+              ))}
+            </div>
+          </details>
         </div>
       </section>}
 
@@ -380,6 +630,7 @@ export default function Farms() {
                 onEdit={f => setEditFarm(f)}
                 onDelete={handleDelete}
                 onRecommend={farm => navigate('/agents/crop', { state: { farm } })}
+                onAssess={farm => navigate('/agents/farm-assessment', { state: { farm } })}
               />
             ))}
           </div>

@@ -1,11 +1,12 @@
 from pydantic import BaseModel, Field
+from typing import Literal
 
 
 class CropRequest(BaseModel):
     N: float = Field(..., ge=0)
     P: float = Field(..., ge=0)
     K: float = Field(..., ge=0)
-    temperature: float
+    temperature: float = Field(..., ge=-50, le=70)
     humidity: float = Field(..., ge=0, le=100)
     ph: float = Field(..., ge=0, le=14)
     rainfall: float = Field(..., ge=0)
@@ -14,6 +15,9 @@ class CropRequest(BaseModel):
 class CropResponse(BaseModel):
     prediction: str
     recommendations: list[dict]
+    modelSource: str
+    inputFeatures: list[str]
+    scoreType: str
 
 class FertilizerRequest(BaseModel):
     pH: float = Field(..., ge=0, le=14)
@@ -31,8 +35,10 @@ class FertilizerRequest(BaseModel):
     Cu_ppm: float = Field(..., ge=0)
     Mn_ppm: float = Field(..., ge=0)
 
-    Soil_Type: str
-    Season: str
+    # Match the fitted encoder's categories. Its handle_unknown='ignore'
+    # otherwise silently turns typos/unsupported classes into all-zero inputs.
+    Soil_Type: Literal['Alluvial', 'Black (Regur)', 'Clay Loam', 'Laterite', 'Red', 'Sandy Loam']
+    Season: Literal['Kharif', 'Rabi', 'Zaid']
 
 class FertilizerResponse(BaseModel):
     ratings: dict
@@ -70,18 +76,6 @@ class RAGResponse(BaseModel):
     question: str
     results: list[dict]
 
-
-class DiseaseRequest(BaseModel):
-    crop: str = Field(..., min_length=1)
-    symptoms: list[str] = Field(..., min_length=1)
-
-
-class DiseaseResponse(BaseModel):
-    crop: str
-    prediction: str
-    recommendations: list[dict]
-    modelSource: str
-    disclaimer: str
 
 class MarketResponse(BaseModel):
     predicted_price: float

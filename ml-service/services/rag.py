@@ -1,6 +1,5 @@
 from pathlib import Path
 import pickle
-import re
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -32,31 +31,11 @@ def _get_semantic_backend():
     return _semantic_backend
 
 
-def _lexical_search(question: str, top_k: int) -> list[dict]:
-    query_terms = set(re.findall(r"[a-z0-9]+", question.lower()))
-    if not query_terms:
-        return []
-
-    ranked = []
-    for chunk in chunks:
-        text = str(chunk.get("text", ""))
-        document_terms = set(re.findall(r"[a-z0-9]+", text.lower()))
-        overlap = query_terms & document_terms
-        if overlap:
-            ranked.append((len(overlap) / len(query_terms), chunk))
-
-    ranked.sort(key=lambda item: item[0], reverse=True)
-    return [
-        {"score": round(score, 4), **chunk}
-        for score, chunk in ranked[:top_k]
-    ]
-
-
 def retrieve_documents(question: str, top_k: int = 3):
-    """Use embeddings when installed, otherwise rank chunks by keyword overlap."""
+    """Search the FAISS embedding index; never substitute lexical ranking."""
     semantic_backend = _get_semantic_backend()
     if semantic_backend is None:
-        return _lexical_search(question, top_k)
+        raise RuntimeError("Semantic retrieval is unavailable: FAISS or the embedding model could not be loaded.")
 
     index, embedder = semantic_backend
     try:
@@ -65,8 +44,8 @@ def retrieve_documents(question: str, top_k: int = 3):
         ).astype("float32")
 
         scores, ids = index.search(query_embedding, min(top_k, index.ntotal))
-    except Exception:
-        return _lexical_search(question, top_k)
+    except Exception as error:
+        raise RuntimeError(f"Semantic retrieval failed: {error}") from error
 
     results = []
 

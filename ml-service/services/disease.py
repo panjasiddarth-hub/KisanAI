@@ -1,119 +1,83 @@
-from __future__ import annotations
+from functools import lru_cache
+from io import BytesIO
+from pathlib import Path
 
-from collections.abc import Mapping, Sequence
-
-
-SYMPTOM_LABELS = {
-	"yellowing": "Yellowing of leaves",
-	"brown_spots": "Brown / black spots",
-	"powdery_white": "White powdery coating",
-	"wilting": "Wilting / drooping",
-	"holes": "Holes in leaves / bolls",
-	"curling": "Leaf curling / cupping",
-	"rust_pustules": "Rust-coloured pustules",
-	"black_rot": "Blackening / rot",
-	"stunting": "Stunted growth",
-	"mosaic": "Mosaic / mottled pattern",
-	"leaf_blight": "Blight (rapid drying)",
-	"boll_damage": "Damaged bolls / fruits",
-	"water_soaked": "Water-soaked lesions",
-	"premature_drop": "Premature dropping",
-	"silver_streaks": "Silvery streaks",
-}
-
-DISEASE_SIGNATURES = {
-	"cotton": [
-		("Pink Bollworm", "Pest (Pectinophora gossypiella)", ("holes", "boll_damage", "premature_drop")),
-		("Cotton Leaf Curl Virus (CLCuV)", "Virus (whitefly-vector)", ("curling", "yellowing", "stunting")),
-		("Alternaria Leaf Spot", "Fungus (Alternaria macrospora)", ("brown_spots", "leaf_blight", "premature_drop")),
-		("Fusarium Wilt", "Fungus (Fusarium oxysporum)", ("wilting", "yellowing", "premature_drop")),
-	],
-	"tomato": [
-		("Early Blight", "Fungus (Alternaria solani)", ("brown_spots", "leaf_blight", "yellowing")),
-		("Tomato Leaf Curl Virus (ToLCV)", "Virus (whitefly-vector)", ("curling", "yellowing", "mosaic", "stunting")),
-		("Late Blight", "Oomycete (Phytophthora infestans)", ("water_soaked", "leaf_blight", "black_rot")),
-	],
-	"wheat": [
-		("Brown / Yellow Rust", "Fungus (Puccinia spp.)", ("rust_pustules", "yellowing")),
-		("Powdery Mildew", "Fungus (Blumeria graminis)", ("powdery_white", "yellowing", "stunting")),
-		("Leaf Blight (Bipolaris)", "Fungus", ("leaf_blight", "brown_spots")),
-	],
-	"onion": [
-		("Purple Blotch", "Fungus (Alternaria porri)", ("brown_spots", "leaf_blight", "water_soaked")),
-		("Thrips", "Pest (Thrips tabaci)", ("silver_streaks", "curling", "stunting")),
-	],
-	"paddy": [
-		("Rice Blast", "Fungus (Magnaporthe oryzae)", ("brown_spots", "leaf_blight")),
-		("Bacterial Leaf Blight", "Bacteria (Xanthomonas oryzae)", ("water_soaked", "yellowing", "leaf_blight")),
-		("Yellow Stem Borer", "Pest (Scirpophaga incertulas)", ("holes", "stunting", "wilting")),
-	],
-	"soybean": [
-		("Yellow Mosaic Virus", "Virus (whitefly-vector)", ("mosaic", "yellowing", "curling")),
-		("Soybean Rust", "Fungus (Phakopsora pachyrhizi)", ("rust_pustules", "brown_spots", "premature_drop")),
-	],
-	"sugarcane": [
-		("Red Rot", "Fungus (Colletotrichum falcatum)", ("black_rot", "wilting", "yellowing")),
-		("Early Shoot Borer", "Pest (Chilo infuscatellus)", ("holes", "stunting", "premature_drop")),
-	],
-}
+import numpy as np
+from fastapi import HTTPException, UploadFile
+from PIL import Image, UnidentifiedImageError
 
 
-def _crop_key(crop: str) -> str | None:
-	normalized = crop.strip().lower()
-	if "paddy" in normalized or "rice" in normalized:
-		return "paddy"
-	return next((key for key in DISEASE_SIGNATURES if key in normalized), None)
+MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "disease_model.keras"
+CONFIDENCE_THRESHOLD = 70.0
+CLASS_NAMES = [
+    "Apple___Apple_scab", "Apple___Black_rot", "Apple___Cedar_apple_rust", "Apple___Healthy",
+    "Blueberry___Healthy", "Cherry_(including_sour)___Powdery_mildew", "Cherry_(including_sour)___Healthy",
+    "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot", "Corn_(maize)___Common_rust_",
+    "Corn_(maize)___Northern_Leaf_Blight", "Corn_(maize)___Healthy", "Grape___Black_rot",
+    "Grape___Esca_(Black_Measles)", "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)", "Grape___Healthy",
+    "Orange___Haunglongbing_(Citrus_greening)", "Peach___Bacterial_spot", "Peach___Healthy",
+    "Pepper,_bell___Bacterial_spot", "Pepper,_bell___Healthy", "Potato___Early_blight",
+    "Potato___Late_blight", "Potato___Healthy", "Raspberry___Healthy", "Soybean___Healthy",
+    "Squash___Powdery_mildew", "Strawberry___Leaf_scorch", "Strawberry___Healthy",
+    "Tomato___Bacterial_spot", "Tomato___Early_blight", "Tomato___Late_blight", "Tomato___Leaf_Mold",
+    "Tomato___Septoria_leaf_spot", "Tomato___Spider_mites Two-spotted_spider_mite",
+    "Tomato___Target_Spot", "Tomato___Tomato_Yellow_Leaf_Curl_Virus", "Tomato___Tomato_mosaic_virus",
+    "Tomato___Healthy",
+]
 
 
-def predict_disease(data: Mapping[str, object]) -> dict[str, object]:
-	crop = str(data.get("crop", "")).strip()
-	symptoms = data.get("symptoms", [])
-	if not crop:
-		raise ValueError("crop is required")
-	if not isinstance(symptoms, Sequence) or isinstance(symptoms, (str, bytes)):
-		raise ValueError("symptoms must be a list of symptom IDs")
+@lru_cache(maxsize=1)
+def load_disease_model():
+    if not MODEL_PATH.is_file():
+        raise RuntimeError(f"Disease model file not found: {MODEL_PATH}")
+    try:
+        import tensorflow as tf
+    except ImportError as error:
+        raise RuntimeError("TensorFlow is not installed for the disease model.") from error
+    # Keep native Windows CPU inference responsive and avoid oversubscribing
+    # the same CPU used by the Node and frontend development servers.
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+    output_shape = model.output_shape
+    if len(CLASS_NAMES) != output_shape[-1]:
+        raise RuntimeError(f"Disease label count ({len(CLASS_NAMES)}) does not match model output ({output_shape[-1]}).")
+    return model
 
-	selected = {str(symptom) for symptom in symptoms if str(symptom)}
-	if not selected:
-		raise ValueError("Select at least one symptom")
 
-	key = _crop_key(crop)
-	if key is None:
-		supported = ", ".join(DISEASE_SIGNATURES)
-		raise ValueError(f'No disease knowledge base for "{crop}" yet. Supported: {supported}.')
+def disease_model_available() -> bool:
+    return MODEL_PATH.is_file()
 
-	ranked = []
-	for name, pathogen, signature in DISEASE_SIGNATURES[key]:
-		matched = [symptom for symptom in signature if symptom in selected]
-		confidence = round(
-			(len(matched) / len(signature) * 70)
-			+ (len(matched) / len(selected) * 30)
-		)
-		ranked.append({
-			"name": name,
-			"pathogen": pathogen,
-			"confidence": min(96, max(8, confidence)),
-			"matchedSymptoms": [SYMPTOM_LABELS.get(symptom, symptom) for symptom in matched],
-			"unmatchedSignature": [
-				SYMPTOM_LABELS.get(symptom, symptom)
-				for symptom in signature
-				if symptom not in selected
-			],
-			"_score": confidence,
-		})
 
-	ranked.sort(key=lambda item: item["_score"], reverse=True)
-	recommendations = [
-		{key: value for key, value in diagnosis.items() if key != "_score"}
-		for diagnosis in ranked[:3]
-	]
-	return {
-		"crop": crop,
-		"prediction": recommendations[0]["name"],
-		"recommendations": recommendations,
-		"modelSource": "symptom_signature_rules",
-		"disclaimer": (
-			"Rule-based advisory only. For severe outbreaks, consult your local "
-			"agriculture officer or KVK scientist before spraying."
-		),
-	}
+def predict_disease_image(image: UploadFile) -> dict:
+    try:
+        model = load_disease_model()
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+    try:
+        contents = image.file.read()
+        with Image.open(BytesIO(contents)) as opened:
+            rgb = opened.convert("RGB").resize((224, 224))
+            pixels = np.asarray(rgb, dtype=np.float32)[np.newaxis, ...]
+    except (UnidentifiedImageError, OSError, ValueError) as error:
+        raise HTTPException(status_code=415, detail="Upload a valid JPEG or PNG leaf image.") from error
+
+    if float(np.std(pixels)) < 2.0:
+        raise HTTPException(status_code=422, detail="Image appears blank or has too little visual detail. Upload a clear leaf photo.")
+
+    scores = np.asarray(model(pixels, training=False))[0]
+    if scores.shape != (len(CLASS_NAMES),) or not np.isfinite(scores).all():
+        raise HTTPException(status_code=503, detail="Disease model returned invalid class scores.")
+    index = int(np.argmax(scores))
+    confidence = float(scores[index] * 100)
+    accepted = confidence >= CONFIDENCE_THRESHOLD
+    return {
+        "prediction": CLASS_NAMES[index] if accepted else None,
+        "topPrediction": CLASS_NAMES[index],
+        "confidence": round(confidence, 2),
+        "accepted": accepted,
+        "threshold": CONFIDENCE_THRESHOLD,
+        "modelSource": "Plant-Disease-Detector MobileNetV2 fine-tuned model",
+        "disclaimer": "Image-model output is a preliminary screening result, not a confirmed diagnosis. Confirm with a local agricultural expert before treatment.",
+    }

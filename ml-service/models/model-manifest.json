@@ -1,0 +1,75 @@
+{
+  "manifest_version": 1,
+  "purpose": "Artifact integrity and known model interface/provenance metadata. This manifest does not establish model quality or suitability for farm decisions.",
+  "runtime_constraints": {
+    "python": "Use a Python version supported by the pinned dependencies; the repository recommends Python 3.11-3.13.",
+    "scikit_learn": "1.6.1 (pinned in requirements.txt; the serialized sklearn models were saved with this version)",
+    "xgboost_training_version": null
+  },
+  "artifacts": [
+    {
+      "id": "crop_recommendation",
+      "files": [{"path": "crop_rec.pkl", "sha256": "315e0fd06cd5c112327cd58d554bebdc588b6ca5a5da4a9cd6ce79e74f8c7596"}],
+      "format": "joblib/pickle dictionary containing a scikit-learn RandomForestClassifier",
+      "input_features": ["N", "P", "K", "temperature", "humidity", "ph", "rainfall"],
+      "target": "crop label; 22 classes are stored in the model",
+      "score_semantics": "predict_proba ranking score; calibration and decision meaning are undocumented",
+      "training_dataset": null,
+      "training_date": null,
+      "evaluation_metrics": null,
+      "known_gaps": ["Feature units and rainfall reference period are undocumented", "Training data source and geographic coverage are undocumented", "No evaluation or probability calibration results are included"]
+    },
+    {
+      "id": "fertilizer_nutrient_ratings",
+      "files": [{"path": "fertilizer.pkl", "sha256": "a70dca4737a88c8f3802b549632a9faaa1eca5f5f3155a68e8bef6c874d66791"}],
+      "format": "joblib/pickle dictionary containing a scikit-learn MultiOutputClassifier and encoders",
+      "input_features": ["pH", "EC_dS_per_m", "OC_percent", "N_kg_per_ha", "P_kg_per_ha", "K_kg_per_ha", "S_ppm", "Zn_ppm", "B_ppm", "Fe_ppm", "Cu_ppm", "Mn_ppm", "Soil_Type", "Season"],
+      "targets": ["N_Rating", "P_Rating", "K_Rating", "S_Rating", "Zn_Rating", "B_Rating", "Fe_Rating", "Cu_Rating", "Mn_Rating"],
+      "output_semantics": "Encoded nutrient ratings, not fertilizer product or application-rate recommendations",
+      "training_dataset": null,
+      "training_date": null,
+      "evaluation_metrics": null,
+      "known_gaps": ["Training data source, geography, and label definitions are undocumented", "No evaluation metrics are included"]
+    },
+    {
+      "id": "market_price_forecast",
+      "files": [
+        {"path": "market_forecasting_model.pkl", "sha256": "fb7b8155292ccb6da1ddc5408bd5c55fc8025c806eea911fd88ff24a03261a6f"},
+        {"path": "market_encoder.pkl", "sha256": "add9cd9608d73e122c2e23ac2c40d5b1e8dd9e50e57bbe6ed5eca3194c601fd9"}
+      ],
+      "format": "XGBoost regressor plus scikit-learn OneHotEncoder",
+      "input_features": ["lag_1", "lag_2", "lag_3", "rolling_mean_3", "rolling_std_3", "month", "day_of_year", "Commodity", "Market", "State"],
+      "target": "predicted_price; currency and weight/quantity unit are undocumented",
+      "training_dataset": null,
+      "training_date": null,
+      "evaluation_metrics": null,
+      "known_gaps": ["Price source, currency, quantity unit, and forecast horizon are undocumented", "Training data date range and evaluation results are undocumented", "XGBoost serialization version is undocumented"]
+    },
+    {
+      "id": "agriculture_knowledge_retrieval",
+      "files": [
+        {"path": "kisanai_faiss.index", "sha256": "1ca12377bba847beca4a77ceedeca399bd507f0d86c44c287693ab0ca5e350e4"},
+        {"path": "kisanai_chunks.pkl", "sha256": "9d01846837515950efefcb9d39c327784e577944f11c7072df4bb0ad314acf94"}
+      ],
+      "format": "FAISS vector index and serialized text chunks",
+      "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+      "corpus_source": "kisanai_chunks.pkl contains 55 chunks from /content/crop_dataset/government_schemes_dataset.csv; source provenance and publication date are unverified",
+      "corpus_date": null,
+      "known_gaps": ["Document sources, publication dates, coverage, and chunking provenance are undocumented"]
+    }
+  ],
+  "disease_model": {
+    "status": "local candidate; runtime loading verified",
+    "artifact": {
+      "path": "disease_model.keras",
+      "sha256": "08f285aff6d9e1ab88d4d5b2269f1cc977714003755f8553887edbf8691b325f",
+      "format": "Keras .keras model",
+      "input_shape": [null, 224, 224, 3],
+      "output_classes": 38
+    },
+    "class_labels": "Ordered list in services/disease.py, copied from the supplied inference app",
+    "training_dataset": "PlantVillage as reported by the source project; not independently verified",
+    "evaluation_metrics": "Source project reports 98.75% test accuracy; local field performance is unknown",
+    "known_gaps": ["Not validated on local field images", "Predicted score is not calibrated confidence", "No treatment recommendations are linked to predictions"]
+  }
+}

@@ -1,7 +1,7 @@
 // Database connection — MongoDB when configured, graceful in-memory fallback otherwise
 import mongoose from 'mongoose';
 
-export async function connectDB() {
+export async function connectDB({ connect = (uri, options) => mongoose.connect(uri, options) } = {}) {
   const uri = process.env.MONGODB_URI;
   if (!uri) {
     globalThis.__DB_MODE__ = 'in-memory';
@@ -10,16 +10,16 @@ export async function connectDB() {
   }
   try {
     console.log('🔄 Connecting to MongoDB Atlas...');
-    await mongoose.connect(uri, {
+    await connect(uri, {
       serverSelectionTimeoutMS: 15000,
       connectTimeoutMS: 15000,
     });
     globalThis.__DB_MODE__ = 'mongodb';
     console.log('✅ Connected to MongoDB Atlas');
   } catch (err) {
-    globalThis.__DB_MODE__ = 'in-memory';
-    console.warn('⚠️  MongoDB connection failed, falling back to in-memory store.');
-    console.warn('   Error:', err.message);
-    console.warn('   Tip: Make sure your IP is whitelisted in MongoDB Atlas → Network Access.');
+    globalThis.__DB_MODE__ = 'unavailable';
+    console.error('MongoDB is configured but unavailable. Refusing to start with temporary storage.');
+    console.error('Check database network access and credentials, then restart the API.');
+    throw new Error('Configured MongoDB is unavailable; API startup stopped to protect farmer data.');
   }
 }

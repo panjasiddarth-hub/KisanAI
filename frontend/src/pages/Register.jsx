@@ -22,7 +22,7 @@ export default function Register() {
     setSubmitting(false);
     if (result.success) {
       toast.success('Account created! Welcome to Kisan AI 🌾');
-      navigate('/dashboard');
+      navigate('/farms');
     } else {
       toast.error(result.error);
     }
@@ -82,15 +82,22 @@ export default function Register() {
             <div className="relative">
               <input
                 type={showPass ? 'text' : 'password'}
-                placeholder="Min. 6 characters"
+                placeholder="At least 12 characters"
                 className="input pr-10"
-                {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'At least 6 characters' } })}
+                {...register('password', {
+                  required: 'Password is required',
+                  validate: {
+                    minCharacters: value => [...value].length >= 12 || 'Use at least 12 characters',
+                    bcryptLimit: value => new TextEncoder().encode(value).length <= 72 || 'Use no more than 72 UTF-8 bytes',
+                  },
+                })}
               />
               <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
                 {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+            <p className="text-xs text-[var(--color-text-muted)] mt-1">Use a memorable passphrase with 12 or more characters.</p>
           </div>
 
           {/* Confirm password */}

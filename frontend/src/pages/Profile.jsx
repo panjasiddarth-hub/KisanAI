@@ -1,17 +1,26 @@
 // src/pages/Profile.jsx
 // User profile with edit form and farm summary
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
+import { useFarms } from '../hooks/useFarms';
 import { useForm } from 'react-hook-form';
 import PageHeader from '../components/ui/PageHeader';
 import toast from 'react-hot-toast';
-import { Loader2, User, Phone, MapPin, Mail, Edit2, Warehouse, Sprout, TrendingUp } from 'lucide-react';
+import { Loader2, User, Phone, MapPin, Mail, Edit2, Warehouse, Sprout } from 'lucide-react';
 
 export default function Profile() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, changePassword, deleteAccount } = useAuth();
+  const { farms, loading: farmsLoading } = useFarms();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteForm, setDeleteForm] = useState({ password: '', confirmEmail: '' });
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: { name: user?.name, phone: user?.phone, location: user?.location }
@@ -26,10 +35,55 @@ export default function Profile() {
     setSubmitting(false);
   };
 
+  const onChangePassword = async (event) => {
+    event.preventDefault();
+    if (passwords.next !== passwords.confirm) {
+      toast.error('New passwords do not match.');
+      return;
+    }
+    setPasswordSubmitting(true);
+    const result = await changePassword(passwords.current, passwords.next);
+    setPasswordSubmitting(false);
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+    setPasswords({ current: '', next: '', confirm: '' });
+    toast.success('Password changed. Other sessions were signed out.');
+  };
+
+  const onExportData = async () => {
+    try {
+      const { data } = await api.get('/auth/export');
+      const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = 'kisanai-account-export.json';
+      link.click();
+      URL.revokeObjectURL(blobUrl);
+      toast.success('Your account export has been downloaded.');
+    } catch {
+      toast.error('Could not export your account data. Please try again.');
+    }
+  };
+
+  const onDeleteAccount = async (event) => {
+    event.preventDefault();
+    setDeleteSubmitting(true);
+    const result = await deleteAccount(deleteForm.password, deleteForm.confirmEmail);
+    setDeleteSubmitting(false);
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success('Your account and its farm records were deleted.');
+    navigate('/');
+  };
+
+  const cropCount = useMemo(() => new Set(farms.flatMap(farm => farm.crops || []).filter(Boolean)).size, [farms]);
   const stats = [
-    { label: 'Total Farms', value: '3', icon: Warehouse, color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
-    { label: 'Active Crops', value: '5', icon: Sprout, color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    { label: 'Total Revenue', value: '₹12.1L', icon: TrendingUp, color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
+    { label: 'Farm profiles', value: farmsLoading ? '…' : farms.length, icon: Warehouse, color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
+    { label: 'Recorded crop types', value: farmsLoading ? '…' : cropCount, icon: Sprout, color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' },
   ];
 
   return (
@@ -61,7 +115,7 @@ export default function Profile() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 gap-3 mb-6">
           {stats.map(s => (
             <div key={s.label} className={`flex items-center gap-3 p-3 rounded-xl ${s.color.split(' ').map(c => c.startsWith('bg-') || c.startsWith('dark:bg-') ? c : '').join(' ')} bg-opacity-30`}>
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${s.color}`}>
@@ -120,24 +174,86 @@ export default function Profile() {
         }
       </div>
 
-      {/* Account settings */}
       <div className="card p-5">
-        <h3 className="font-bold text-sm text-[var(--color-text)] mb-4">Account Settings</h3>
-        <div className="space-y-3">
-          {[
-            { label: 'SMS Alerts for Weather', active: true },
-            { label: 'Email Notifications', active: true },
-            { label: 'Disease Detection Alerts', active: true },
-            { label: 'Market Price Updates (Daily)', active: false },
-          ].map(setting => (
-            <div key={setting.label} className="flex items-center justify-between p-3 rounded-xl border border-[var(--color-border)]">
-              <span className="text-sm text-[var(--color-text)]">{setting.label}</span>
-              <div className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative ${setting.active ? 'bg-green-500' : 'bg-gray-200 dark:bg-slate-600'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow absolute top-1 transition-all ${setting.active ? 'left-6' : 'left-1'}`} />
-              </div>
-            </div>
-          ))}
-        </div>
+        <h3 className="font-bold text-sm text-[var(--color-text)] mb-2">Notifications</h3>
+        <p className="text-sm text-[var(--color-text-muted)]">SMS, email, disease, and market notifications are not connected yet. This page will show notification controls when delivery is implemented.</p>
+      </div>
+
+      <div className="card p-5 mt-5">
+        <h3 className="font-bold text-sm text-[var(--color-text)] mb-1">Change password</h3>
+        <p className="text-xs text-[var(--color-text-muted)] mb-4">Use at least 12 characters. Changing it signs out other sessions.</p>
+        <form onSubmit={onChangePassword} className="space-y-3 max-w-lg">
+          <input
+            className="input"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Current password"
+            required
+            value={passwords.current}
+            onChange={(event) => setPasswords((value) => ({ ...value, current: event.target.value }))}
+          />
+          <input
+            className="input"
+            type="password"
+            autoComplete="new-password"
+            placeholder="New passphrase (12+ characters)"
+            required
+            minLength={12}
+            value={passwords.next}
+            onChange={(event) => setPasswords((value) => ({ ...value, next: event.target.value }))}
+          />
+          <input
+            className="input"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Confirm new passphrase"
+            required
+            value={passwords.confirm}
+            onChange={(event) => setPasswords((value) => ({ ...value, confirm: event.target.value }))}
+          />
+          <button type="submit" disabled={passwordSubmitting} className="btn-primary flex items-center gap-2">
+            {passwordSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            Update password
+          </button>
+        </form>
+      </div>
+
+      <div className="card p-5 mt-5">
+        <h3 className="font-bold text-sm text-[var(--color-text)] mb-1">Your data</h3>
+        <p className="text-xs text-[var(--color-text-muted)] mb-4">Download a copy of your account, farms, crops, and crop calendars.</p>
+        <button type="button" onClick={onExportData} className="btn-secondary">Download my data</button>
+      </div>
+
+      <div className="card p-5 mt-5 border border-red-300 dark:border-red-900">
+        <h3 className="font-bold text-sm text-red-700 dark:text-red-400 mb-1">Delete account</h3>
+        <p className="text-sm text-[var(--color-text-muted)] mb-4">
+          This permanently deletes your account, farms, crops, and crop calendars. Download your data first if you need a copy.
+        </p>
+        <form onSubmit={onDeleteAccount} className="space-y-3 max-w-lg">
+          <input
+            className="input"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Your password"
+            required
+            value={deleteForm.password}
+            onChange={(event) => setDeleteForm((value) => ({ ...value, password: event.target.value }))}
+          />
+          <label className="block text-xs text-[var(--color-text-muted)]">
+            Type <strong className="text-[var(--color-text)]">{user?.email}</strong> to confirm.
+            <input
+              className="input mt-2"
+              type="email"
+              autoComplete="email"
+              required
+              value={deleteForm.confirmEmail}
+              onChange={(event) => setDeleteForm((value) => ({ ...value, confirmEmail: event.target.value }))}
+            />
+          </label>
+          <button type="submit" disabled={deleteSubmitting} className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold disabled:opacity-60">
+            {deleteSubmitting ? 'Deleting account…' : 'Permanently delete my account'}
+          </button>
+        </form>
       </div>
     </div>
   );

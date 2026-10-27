@@ -1,5 +1,6 @@
 // One async persistence API over MongoDB or in-memory arrays.
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 import { User } from '../models/User.js';
 import { CropPlan } from '../models/CropPlan.js';
 import { Farm } from '../models/Farm.js';
@@ -28,12 +29,67 @@ export const users = {
       const doc = await User.create({ name, email: email.toLowerCase(), passwordHash });
       return doc.toObject();
     }
-    const user = { id: String(Date.now()), name, email: email.toLowerCase(), passwordHash, role: 'farmer', phone: '', location: '' };
+    const user = { id: String(Date.now()), name, email: email.toLowerCase(), passwordHash, tokenVersion: 0, role: 'farmer', phone: '', location: '' };
     memory.users.push(user);
     return user;
   },
   async verifyPassword(user, password) {
     return bcrypt.compare(password, user.passwordHash);
+  },
+  async revokeSessions(id) {
+    if (isMongo()) return User.findByIdAndUpdate(id, { $inc: { tokenVersion: 1 } }, { new: true }).lean();
+    const user = memory.users.find((entry) => entry.id === String(id));
+    if (user) user.tokenVersion = (user.tokenVersion || 0) + 1;
+    return user || null;
+  },
+  async updatePassword(id, password) {
+    const passwordHash = await bcrypt.hash(password, 10);
+    if (isMongo()) return User.findByIdAndUpdate(id, { $set: { passwordHash }, $inc: { tokenVersion: 1 } }, { new: true }).lean();
+    const user = memory.users.find((entry) => entry.id === String(id));
+    if (!user) return null;
+    user.passwordHash = passwordHash;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    return user;
+  },
+  async deleteAccount(id) {
+    const userId = String(id);
+    if (isMongo()) {
+      const session = await mongoose.startSession();
+      let deleted;
+      try {
+        await session.withTransaction(async () => {
+          const planResult = await CropPlan.deleteMany({ userId }).session(session);
+          const cropResult = await Crop.deleteMany({ userId }).session(session);
+          const farmResult = await Farm.deleteMany({ userId }).session(session);
+          const userResult = await User.deleteOne({ _id: id }).session(session);
+          deleted = {
+            plans: planResult.deletedCount,
+            crops: cropResult.deletedCount,
+            farms: farmResult.deletedCount,
+            account: userResult.deletedCount,
+          };
+        });
+      } finally {
+        await session.endSession();
+      }
+      return deleted;
+    }
+
+    const removeOwned = (collection) => {
+      let count = 0;
+      for (let index = collection.length - 1; index >= 0; index -= 1) {
+        if (String(collection[index].userId) === userId) {
+          collection.splice(index, 1);
+          count += 1;
+        }
+      }
+      return count;
+    };
+    const userIndex = memory.users.findIndex((entry) => String(entry.id) === userId);
+    if (userIndex < 0) return { plans: 0, crops: 0, farms: 0, account: 0 };
+    const [planCount, cropCount, farmCount] = [removeOwned(memory.plans), removeOwned(memory.crops), removeOwned(memory.farms)];
+    memory.users.splice(userIndex, 1);
+    return { plans: planCount, crops: cropCount, farms: farmCount, account: 1 };
   },
   public: publicUser,
 };
@@ -68,16 +124,21 @@ export const plans = {
     if (i >= 0) memory.plans.splice(i, 1);
     return { deletedCount: i >= 0 ? 1 : 0 };
   },
-  async setEventDone(userId, planId, eventIndex, done) {
+  async updateEvent(userId, planId, eventIndex, updates) {
     const plan = await this.get(userId, planId);
     if (!plan || !plan.events[eventIndex]) return null;
-    plan.events[eventIndex].done = !!done;
+    const events = plan.events.map((event) => ({ ...event }));
+    events[eventIndex] = { ...events[eventIndex], ...updates };
+    if ('date' in updates) events.sort((a, b) => a.date.localeCompare(b.date));
     if (isMongo()) {
-      await CropPlan.updateOne(
-        { _id: planId, userId },
-        { $set: { [`events.${eventIndex}.done`]: !!done } }
-      );
+      const fields = 'date' in updates
+        ? { events }
+        : { [`events.${eventIndex}.done`]: updates.done };
+      const result = await CropPlan.updateOne({ _id: planId, userId }, { $set: fields });
+      if (!result.matchedCount) return null;
+      return this.get(userId, planId);
     }
+    plan.events = events;
     return plan;
   },
 };
@@ -108,7 +169,7 @@ export const farms = {
   },
   async update(userId, id, updates) {
     if (isMongo()) {
-      const doc = await Farm.findOneAndUpdate({ _id: id, userId }, { $set: updates }, { new: true }).lean();
+      const doc = await Farm.findOneAndUpdate({ _id: id, userId }, { $set: updates }, { new: true, runValidators: true }).lean();
       return doc && { ...doc, id: String(doc._id) };
     }
     const idx = memory.farms.findIndex(f => f.id === id && f.userId === userId);
@@ -152,7 +213,7 @@ export const crops = {
   },
   async update(userId, id, updates) {
     if (isMongo()) {
-      const doc = await Crop.findOneAndUpdate({ _id: id, userId }, { $set: updates }, { new: true }).lean();
+      const doc = await Crop.findOneAndUpdate({ _id: id, userId }, { $set: updates }, { new: true, runValidators: true }).lean();
       return doc && { ...doc, id: String(doc._id) };
     }
     const idx = memory.crops.findIndex(c => c.id === id && c.userId === userId);

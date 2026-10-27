@@ -24,6 +24,7 @@ const Schemes = lazy(() => import('./pages/Schemes'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const CropSuggester = lazy(() => import('./pages/CropSuggester'));
 const FertilizerAgent = lazy(() => import('./pages/FertilizerAgent'));
+const FarmAssessment = lazy(() => import('./pages/FarmAssessment'));
 const Calendar = lazy(() => import('./pages/Calendar'));
 const AIAssistant = lazy(() => import('./pages/AIAssistant'));
 const Notifications = lazy(() => import('./pages/Notifications'));
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="ai-assistant" element={<AIAssistant />} />
               <Route path="agents/crop" element={<CropSuggester />} />
               <Route path="agents/fertilizer" element={<FertilizerAgent />} />
+              <Route path="agents/farm-assessment" element={<FarmAssessment />} />
               <Route path="calendar" element={<Calendar />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="profile" element={<Profile />} />

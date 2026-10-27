@@ -1,4 +1,4 @@
-// A farmer's AI-generated crop season calendar persistence model.
+// A farmer's draft crop season calendar persistence model.
 import mongoose from 'mongoose';
 
 const eventSchema = new mongoose.Schema(
@@ -16,6 +16,7 @@ const eventSchema = new mongoose.Schema(
 const cropPlanSchema = new mongoose.Schema(
   {
     userId: { type: String, required: true, index: true },
+    farmId: { type: String, default: '' },
     crop: { type: String, required: true },
     areaAcres: { type: Number, default: 1 },
     season: { type: String, default: '' },

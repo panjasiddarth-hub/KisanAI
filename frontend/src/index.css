@@ -354,4 +354,115 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     border-color: var(--color-primary-light);
   }
+
+  /* Farmer dashboard */
+  .dashboard-page { max-width: 1480px !important; padding-top: 30px; }
+  .dashboard-welcome {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;
+    padding: 30px; min-height: 210px; margin-bottom: 24px; border: 1px solid rgba(212, 238, 211, .3); border-radius: 22px;
+    background-color: #173c22; background-size: cover; background-position: center 57%; box-shadow: 0 12px 32px rgba(16, 54, 25, .15);
+  }
+  .dashboard-welcome .dashboard-eyebrow { display: inline-flex; align-items: center; gap: 6px; color: #c6f3ca; font-size: .68rem; font-weight: 800; letter-spacing: .1em; }
+  .dashboard-welcome h1 { margin-top: 9px; font-size: clamp(1.65rem, 3vw, 2.3rem); line-height: 1.15; letter-spacing: -.04em; font-weight: 800; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.22); }
+  .dashboard-welcome p { margin-top: 8px; color: rgba(255,255,255,.88); font-size: .9rem; }
+  .dashboard-welcome-actions { display: grid; justify-items: end; gap: 9px; flex-shrink: 0; }
+  .dashboard-add-button, .dashboard-empty-farms button, .dashboard-next-step > button {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0;
+    padding: 11px 15px; border: 0; border-radius: 12px; background: #168044; color: white; font-size: .8rem; font-weight: 750; cursor: pointer; transition: background .18s, transform .18s;
+  }
+  .dashboard-add-button:hover, .dashboard-empty-farms button:hover, .dashboard-next-step > button:hover { background: #116b38; transform: translateY(-1px); }
+  .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start; }
+  .dashboard-main, .dashboard-side { display: grid; gap: 22px; min-width: 0; }
+  .dashboard-section { min-width: 0; }
+  .dashboard-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 13px; }
+  .dashboard-section-heading h2, .dashboard-weather-heading h2 { font-size: 1rem; font-weight: 800; letter-spacing: -.02em; color: var(--color-text); }
+  .dashboard-section-heading p { margin-top: 3px; color: var(--color-text-muted); font-size: .75rem; }
+  .dashboard-text-link, .dashboard-weather-heading button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: #168044; font-size: .75rem; font-weight: 750; cursor: pointer; }
+  .dark .dashboard-text-link, .dark .dashboard-weather-heading button { color: #8dd49a; }
+  .dashboard-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .dashboard-summary-card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 15px; border: 1px solid var(--color-border); border-radius: 15px; background: var(--color-surface); }
+  .dashboard-summary-icon, .dashboard-action-icon, .dashboard-note-icon, .dashboard-empty-icon, .dashboard-farm-mark { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 12px; }
+  .dashboard-summary-icon { width: 38px; height: 38px; }
+  .dashboard-summary-icon.green { color: #168044; background: #e8f5e9; }
+  .dashboard-summary-icon.blue { color: #2477a9; background: #e7f3fa; }
+  .dashboard-summary-icon.amber { color: #a96810; background: #fff3da; }
+  .dashboard-summary-card strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.1rem; line-height: 1.2; color: var(--color-text); }
+  .dashboard-summary-card strong small { font-size: .68rem; font-weight: 650; color: var(--color-text-muted); }
+  .dashboard-summary-card span:not(.dashboard-summary-icon) { display: block; margin-top: 3px; color: var(--color-text-muted); font-size: .68rem; }
+  .dashboard-farm-grid { display: grid; gap: 9px; }
+  .dashboard-farm-card { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 15px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); text-align: left; cursor: pointer; transition: border-color .18s, transform .18s, box-shadow .18s; }
+  .dashboard-farm-card:hover { transform: translateY(-1px); border-color: #9dccaa; box-shadow: 0 5px 18px rgba(30, 70, 40, .07); }
+  .dashboard-farm-mark { width: 38px; height: 38px; color: #38804b; background: #edf6eb; }
+  .dashboard-farm-info { display: grid; gap: 4px; min-width: 0; flex: 1; }
+  .dashboard-farm-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text); font-size: .83rem; }
+  .dashboard-farm-info span { display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-muted); font-size: .7rem; }
+  .dashboard-farm-area { color: var(--color-text); font-size: .73rem; font-weight: 750; white-space: nowrap; }
+  .dashboard-more-farms { justify-self: start; border: 0; background: transparent; color: #168044; font-size: .74rem; font-weight: 750; cursor: pointer; }
+  .dashboard-empty-farms { display: flex; align-items: center; gap: 14px; padding: 20px; border: 1px dashed #b9d2ba; border-radius: 16px; background: var(--color-surface); }
+  .dashboard-empty-icon { width: 43px; height: 43px; color: #38804b; background: #edf6eb; }
+  .dashboard-empty-farms > div { flex: 1; }
+  .dashboard-empty-farms strong { font-size: .83rem; color: var(--color-text); }
+  .dashboard-empty-farms p { margin-top: 4px; max-width: 520px; color: var(--color-text-muted); font-size: .72rem; line-height: 1.5; }
+  .dashboard-empty-farms button, .dashboard-next-step > button { padding: 9px 12px; font-size: .72rem; }
+  .dashboard-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+  .dashboard-action-card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 15px; border: 1px solid var(--color-border); border-radius: 15px; background: var(--color-surface); text-align: left; cursor: pointer; transition: transform .18s, border-color .18s, box-shadow .18s; }
+  .dashboard-action-card:hover { transform: translateY(-2px); border-color: #a9cfb0; box-shadow: 0 7px 20px rgba(20, 60, 30, .07); }
+  .dashboard-action-icon { width: 42px; height: 42px; }
+  .dashboard-action-icon.green { color: #168044; background: #e8f5e9; }
+  .dashboard-action-icon.amber { color: #a96810; background: #fff3da; }
+  .dashboard-action-icon.rose { color: #b64f46; background: #fff0ed; }
+  .dashboard-action-icon.blue { color: #2477a9; background: #e7f3fa; }
+  .dashboard-action-copy { display: grid; gap: 4px; min-width: 0; flex: 1; }
+  .dashboard-action-copy strong { color: var(--color-text); font-size: .8rem; }
+  .dashboard-action-copy span { color: var(--color-text-muted); font-size: .68rem; line-height: 1.35; }
+  .dashboard-action-arrow { flex-shrink: 0; color: #8a9b8c; }
+  .dashboard-next-step { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid #dce7f2; border-radius: 15px; background: #f5f9fd; }
+  .dark .dashboard-next-step { border-color: #2a4052; background: #172431; }
+  .dashboard-next-icon { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: 12px; color: #3575a2; background: #e5f1f8; }
+  .dashboard-next-step > div { flex: 1; }
+  .dashboard-next-step strong { color: var(--color-text); font-size: .78rem; }
+  .dashboard-next-step p { margin-top: 3px; color: var(--color-text-muted); font-size: .68rem; line-height: 1.4; }
+  .dashboard-weather-card, .dashboard-note-card { padding: 19px; border: 1px solid var(--color-border); border-radius: 17px; background: var(--color-surface); }
+  .dashboard-weather-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .dashboard-weather-heading .dashboard-eyebrow { font-size: .58rem; }
+  .dashboard-weather-heading h2 { margin-top: 3px; }
+  .dashboard-current-weather { display: flex; align-items: center; gap: 13px; margin-top: 21px; color: #edae37; }
+  .dashboard-current-weather > div { display: grid; gap: 1px; color: var(--color-text); }
+  .dashboard-current-weather strong { font-size: 2.2rem; line-height: 1; letter-spacing: -.06em; }
+  .dashboard-current-weather span { color: var(--color-text-muted); font-size: .75rem; }
+  .dashboard-weather-location { display: flex; align-items: center; gap: 5px; margin-top: 10px; color: var(--color-text-muted); font-size: .69rem; }
+  .dashboard-weather-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 18px; padding: 14px 0; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
+  .dashboard-weather-metrics > div { display: grid; justify-items: center; gap: 4px; color: #4388aa; }
+  .dashboard-weather-metrics strong { color: var(--color-text); font-size: .69rem; white-space: nowrap; }
+  .dashboard-weather-metrics span { color: var(--color-text-muted); font-size: .59rem; }
+  .dashboard-forecast { margin-top: 13px; }
+  .dashboard-forecast > span { color: var(--color-text-muted); font-size: .65rem; font-weight: 700; }
+  .dashboard-forecast > div { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 8px; }
+  .dashboard-forecast > div > div { display: grid; justify-items: center; gap: 5px; color: #61a5c4; }
+  .dashboard-forecast small { color: var(--color-text-muted); font-size: .58rem; }
+  .dashboard-forecast strong { color: var(--color-text); font-size: .68rem; }
+  .dashboard-weather-error { margin-top: 16px; color: var(--color-text-muted); font-size: .76rem; line-height: 1.5; }
+  .dashboard-weather-error button { display: block; margin-top: 8px; border: 0; background: transparent; color: #168044; font-weight: 750; cursor: pointer; }
+  .dashboard-note-card { display: flex; align-items: flex-start; gap: 11px; background: #fbfaf4; border-color: #eee8d5; }
+  .dark .dashboard-note-card { background: #25251c; border-color: #403b2b; }
+  .dashboard-note-icon { width: 36px; height: 36px; color: #9a7217; background: #fff1c9; }
+  .dashboard-note-card strong { color: var(--color-text); font-size: .75rem; }
+  .dashboard-note-card p { margin-top: 5px; color: var(--color-text-muted); font-size: .68rem; line-height: 1.5; }
+  .dashboard-note-card button { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; padding: 0; border: 0; background: transparent; color: #168044; font-size: .68rem; font-weight: 750; cursor: pointer; }
+  @media (max-width: 1100px) { .dashboard-grid { grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; } .dashboard-main, .dashboard-side { gap: 18px; } }
+  @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } .dashboard-side { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
+  @media (max-width: 640px) {
+    .dashboard-page { padding: 18px 14px; }
+    .dashboard-welcome { display: grid; padding: 22px 19px; min-height: 245px; border-radius: 18px; background-position: 61% center; }
+    .dashboard-welcome-actions { justify-items: start; }
+    .dashboard-summary-grid { grid-template-columns: 1fr; gap: 8px; }
+    .dashboard-summary-card { padding: 11px 13px; }
+    .dashboard-action-grid, .dashboard-side { grid-template-columns: 1fr; }
+    .dashboard-empty-farms { align-items: flex-start; flex-wrap: wrap; }
+    .dashboard-empty-farms > div { min-width: calc(100% - 65px); }
+    .dashboard-empty-farms button { margin-left: 57px; }
+    .dashboard-next-step { align-items: flex-start; flex-wrap: wrap; }
+    .dashboard-next-step > div { min-width: calc(100% - 60px); }
+    .dashboard-next-step > button { margin-left: 50px; }
+  }
 }

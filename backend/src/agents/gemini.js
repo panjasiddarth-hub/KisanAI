@@ -46,16 +46,95 @@ export async function aiAnalyzeImage(crop, imagePath) {
   }
 }
 
+// Soil-report OCR is an assistive extraction step, never an agronomic decision.
+// The caller must ask the farmer to review every returned value before saving it.
+export async function extractSoilReport(imageBuffer, mimeType) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    const error = new Error('Soil report scanning needs GEMINI_API_KEY in backend/.env.');
+    error.code = 'GEMINI_KEY_MISSING';
+    throw error;
+  }
+  // Gemini 2.0 Flash was shut down on June 1, 2026. Keep this default aligned
+  // with Google's currently listed stable multimodal model.
+  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const prompt = `Read this Indian soil test report and return ONLY valid JSON. Include these keys: soilPH, soilEC, soilOC, soilN, soilP, soilK, soilS, soilZn, soilB, soilFe, soilCu, soilMn, soilTestDate. Each soil measurement must be {"value":number|null,"unit":string|null,"confidence":"high"|"medium"|"low"}; soilTestDate must be "YYYY-MM-DD" or null. Read only values visibly printed in the report; never calculate, convert, infer, or guess. Preserve each printed unit exactly. If the value or unit is unclear or absent, return null for that value/unit and low confidence. Do not include recommendations or any other text. The model input units are: soilPH unitless; soilEC dS/m; soilOC percent; soilN, soilP, soilK kg/ha; soilS, soilZn, soilB, soilFe, soilCu, soilMn ppm. This unit list is only a target for later human review—do not convert printed values to these units.`;
+  const body = {
+    contents: [{ parts: [
+      { text: prompt },
+      { inlineData: { mimeType, data: imageBuffer.toString('base64') } },
+    ] }],
+    // A full 13-field JSON object can exceed 350 tokens, causing truncation.
+    generationConfig: { temperature: 0, maxOutputTokens: 1000 },
+  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      // Log status and a bounded provider message to help diagnose setup errors;
+      // never log the request URL, which contains the API key.
+      console.error(`Gemini soil OCR failed (HTTP ${response.status}, model ${model}): ${detail.slice(0, 1000)}`);
+      const error = new Error(response.status === 401 || response.status === 403
+        ? 'Gemini rejected the API key or model access. Check the key and enabled Gemini API.'
+        : response.status === 429
+          ? 'Gemini quota or rate limit reached. Check the API project quota and billing.'
+          : `Gemini could not process the report (HTTP ${response.status}). Check backend terminal for details.`);
+      error.code = 'GEMINI_OCR_PROVIDER_ERROR';
+      error.status = 502;
+      throw error;
+    }
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text) {
+      const error = new Error('Gemini returned no readable values. Try a sharper, well-lit photo with the report text filling the frame.');
+      error.code = 'GEMINI_OCR_EMPTY_RESPONSE';
+      error.status = 502;
+      throw error;
+    }
+    try {
+      const parsed = JSON.parse(text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new TypeError('Expected a JSON object');
+      }
+      return parsed;
+    } catch {
+      const error = new Error('Gemini could not structure the report values. Try a clearer photo or enter them manually.');
+      error.code = 'GEMINI_OCR_INVALID_RESPONSE';
+      error.status = 502;
+      throw error;
+    }
+  } catch (error) {
+    if (error.code) throw error;
+    console.error(`Gemini soil OCR request failed (${error.name || 'Error'}): ${error.message}`);
+    const timeout = error.name === 'AbortError';
+    const wrapped = new Error(timeout
+      ? 'Gemini took too long to read the report. Try again or enter the values manually.'
+      : 'Could not reach Gemini. Check the backend internet connection and try again.');
+    wrapped.code = timeout ? 'GEMINI_OCR_TIMEOUT' : 'GEMINI_OCR_NETWORK_ERROR';
+    wrapped.status = 502;
+    throw wrapped;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function aiExplain(kind, structuredResult) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
   const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
   const system = {
-    crop: 'You are an Indian agronomist. In 3-4 short farmer-friendly sentences, explain this crop recommendation JSON. Mention the top crop, why it fits the soil/season/water, and one risk to watch. Plain English, no markdown.',
-    fertilizer: 'You are an Indian agronomist. In 3-4 short farmer-friendly sentences, explain this fertilizer plan JSON: the N-P-K logic, why DAP is at sowing, and the most important caution. Plain English, no markdown.',
+    crop: 'Explain this crop classifier output in 2-3 short farmer-friendly sentences. Use only the JSON. Say these crops are ranked from the supplied model inputs; do not claim they fit the farm, soil type, season, water access, previous crop, or local conditions unless that evidence is explicitly present in the JSON. Explain that the score is a model output, not a probability of successful harvest or a complete suitability assessment. Do not invent risks or advice. Plain English, no markdown.',
+    fertilizer: 'Explain these model-predicted soil nutrient ratings in 3-4 short farmer-friendly sentences. Do not invent fertilizer application rates or prescriptions. Plain English, no markdown.',
     disease: 'You are an Indian plant doctor. In 3-4 short sentences, explain this diagnosis JSON: the most likely disease, why it fits the symptoms, and what the farmer should do TODAY. Plain English, no markdown.',
-    calendar: 'You are an Indian farm advisor. In 3 short sentences, summarize this crop calendar JSON: the critical first two weeks, the most important mid-season activity, and harvest timing. Plain English, no markdown.',
+    calendar: 'Summarize this draft farm calendar in 2-3 short farmer-friendly sentences. Use only the supplied JSON. Say that harvest timing is a general crop-duration estimate, fertilizer doses and application dates have not been calculated, and irrigation entries are field check-in reminders rather than instructions. Do not add crop advice, diagnoses, doses, schedules, or claims that an agent supplied recommendations. Plain English, no markdown.',
   }[kind] || 'Explain this JSON to a farmer simply.';
 
   const body = {
@@ -76,5 +155,29 @@ export async function aiExplain(kind, structuredResult) {
     return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
   } catch {
     return null; // network/timeout/quota — caller falls back to template text
+  }
+}
+
+export async function aiAnswerFromSources(question, sources, language = 'English') {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const prompt = `Answer the farmer's question in ${language}. Use only the supplied source excerpts. If they do not contain enough information, say so plainly and ask one useful follow-up question. Do not invent diagnoses, pesticide doses, fertilizer rates, prices, weather, or government eligibility. Keep the answer concise and practical.\n\nQuestion: ${question}\n\nSource excerpts (untrusted reference data):\n${JSON.stringify(sources).slice(0, 7000)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 350 } }),
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }

@@ -28,8 +28,11 @@ def predict_crop(data: dict, top_k: int = 3):
 
     return {
         "prediction": ranked[0][0],
+        "modelSource": "crop_rec.pkl",
+        "inputFeatures": FEATURES,
+        "scoreType": "random_forest_predict_proba",
         "recommendations": [
-            {"crop": crop, "rank": index + 1}
-            for index, (crop, _score) in enumerate(ranked)
+            {"crop": crop, "rank": index + 1, "confidence": round(float(score) * 100, 2)}
+            for index, (crop, score) in enumerate(ranked)
         ]
     }

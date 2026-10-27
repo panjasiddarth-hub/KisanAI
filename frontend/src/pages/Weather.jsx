@@ -8,7 +8,7 @@ import {
   LineElement, BarElement, Title, Tooltip, Legend, Filler
 } from 'chart.js';
 import { Sun, Cloud, CloudRain, CloudLightning, Wind, Droplets, Thermometer, Gauge } from 'lucide-react';
-import { api } from '../api/client';
+import { getWeather } from '../api/weather';
 import toast from 'react-hot-toast';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
@@ -33,22 +33,13 @@ const getIcon = (name) => {
 export default function Weather() {
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState(null);
+  const [usingDefaultLocation, setUsingDefaultLocation] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     const fetchWeather = async (lat, lon, location) => {
       try {
-        const params = new URLSearchParams();
-        if (lat && lon) {
-          params.append('lat', lat);
-          params.append('lon', lon);
-        }
-        if (location) {
-          params.append('location', location);
-        }
-        
-        const query = params.toString() ? `?${params.toString()}` : '';
-        const { data } = await api.get(`/weather${query}`);
+        const data = await getWeather({ lat, lon, location });
         
         if (mounted) {
           setWeather(data);
@@ -56,7 +47,7 @@ export default function Weather() {
         }
       } catch {
         if (mounted) {
-          toast.error('Failed to load weather data');
+          toast.error('Failed to load weather forecast');
           setLoading(false);
         }
       }
@@ -89,11 +80,15 @@ export default function Weather() {
         },
         (error) => {
           console.warn('Geolocation failed, using default', error);
-          if (mounted) fetchWeather();
+          if (mounted) {
+            setUsingDefaultLocation(true);
+            fetchWeather();
+          }
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     } else {
+      setUsingDefaultLocation(true);
       fetchWeather();
     }
     
@@ -123,7 +118,13 @@ export default function Weather() {
 
   return (
     <div className="page-content">
-      <PageHeader title="Weather Center" subtitle={weather ? `Live data for ${weather.current.location}` : 'Loading...'} />
+      <PageHeader title="Weather Forecast" subtitle={weather ? `Forecast context for ${weather.current.location}` : 'Loading forecast…'} />
+
+      <div className="card mb-5 border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+        <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Forecast context only</p>
+        <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">This general forecast is not an IMD/KVK agricultural advisory and does not prescribe irrigation, spraying, or farm tasks.</p>
+        {usingDefaultLocation && <p className="mt-2 text-xs font-semibold text-amber-900 dark:text-amber-200">Device location was unavailable, so this page is showing the default Nashik forecast. Allow location access to see your current area.</p>}
+      </div>
 
       <div className="card mb-5 overflow-hidden">
         <div className="bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 p-6 text-white relative">
@@ -133,7 +134,7 @@ export default function Weather() {
           {loading || !weather
             ? <div className="space-y-3"><div className="skeleton h-12 w-32 rounded bg-white/20" /><div className="skeleton h-6 w-48 rounded bg-white/20" /></div>
             : <>
-              <p className="text-blue-100 text-sm mb-1">📍 {weather.current.location} · Updated just now</p>
+              <p className="text-blue-100 text-sm mb-1">📍 {weather.current.location} · Forecast provider data</p>
               <div className="flex items-end gap-4 mb-4">
                 <span className="text-7xl font-bold">{weather.current.temperature}°C</span>
                 <div>

@@ -46,11 +46,16 @@ export function AuthProvider({ children }) {
     } catch (err) {
       if (isOfflineError(err)) {
         // Offline fallback — demo account only
-        if (email === DEMO_USER.email && password === DEMO_USER.password) {
+        if (import.meta.env.DEV && email === DEMO_USER.email && password === DEMO_USER.password) {
           persist(DEMO_USER.profile, btoa(`demo:${Date.now()}`));
           return { success: true, offline: true };
         }
-        return { success: false, error: 'Backend is offline. Start it with "cd backend && npm start", or use the demo login (siddarth@kisan.com / password123).' };
+        return {
+          success: false,
+          error: import.meta.env.DEV
+            ? 'Backend is offline. Start it with "cd backend && npm start", or use the local demo login.'
+            : 'Sign-in service is unavailable. Please try again later.',
+        };
       }
       return { success: false, error: apiErrorMessage(err, 'Login failed') };
     } finally {
@@ -74,7 +79,34 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const logout = useCallback(() => persist(null, null), []);
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    try {
+      const { data } = await api.post('/auth/change-password', { currentPassword, newPassword });
+      persist(data.user, data.token);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: apiErrorMessage(err, 'Password could not be changed') };
+    }
+  }, []);
+
+  const deleteAccount = useCallback(async (password, confirmEmail) => {
+    try {
+      const { data } = await api.delete('/auth/account', { data: { password, confirmEmail } });
+      persist(null, null);
+      return { success: true, deleted: data.deleted };
+    } catch (err) {
+      return { success: false, error: apiErrorMessage(err, 'Account could not be deleted') };
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      let hasToken = false;
+      try { hasToken = !!localStorage.getItem('kisan_token'); } catch { /* sandbox */ }
+      if (hasToken) await api.post('/auth/logout', {}, { timeout: 5000 });
+    } catch { /* Always clear this device locally if the API is offline. */ }
+    finally { persist(null, null); }
+  }, []);
 
   const updateProfile = useCallback((updates) => {
     setUser(prev => {
@@ -85,7 +117,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateProfile, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, changePassword, deleteAccount, logout, updateProfile, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

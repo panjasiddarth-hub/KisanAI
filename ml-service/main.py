@@ -1,10 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from pathlib import Path
+from importlib.util import find_spec
 
 from schemas import (
     CropRequest,
     CropResponse,
-    DiseaseRequest,
-    DiseaseResponse,
     FertilizerRequest,
     FertilizerResponse,
     MarketRequest,
@@ -14,10 +14,15 @@ from schemas import (
 )
 
 from services.crop import predict_crop
-from services.disease import predict_disease
+from services.disease import disease_model_available, predict_disease_image
 from services.fertilizer import predict_fertilizer
 from services.market import predict_market
 from services.rag import retrieve_documents
+
+
+# The bundled FAISS index only contains an undated local scheme CSV with no
+# primary-source URLs. Keep retrieval disabled until a curated corpus is built.
+RAG_CORPUS_VERIFIED = False
 
 
 app = FastAPI(
@@ -37,8 +42,23 @@ def root():
 
 @app.get("/health")
 def health():
+    models_dir = Path(__file__).resolve().parent / "models"
+    semantic_ready = (
+        (models_dir / "kisanai_faiss.index").exists()
+        and (models_dir / "kisanai_chunks.pkl").exists()
+        and find_spec("faiss") is not None
+        and find_spec("sentence_transformers") is not None
+    )
     return {
-        "status": "healthy"
+        "status": "degraded",
+        "models": {
+            "crop": "available",
+            "fertilizer": "available",
+            "market": "artifact loaded; experimental and not validated for farmer decisions",
+            "disease": "available" if disease_model_available() and find_spec("tensorflow") is not None else "unavailable: model artifact or TensorFlow runtime missing",
+            "rag": "unavailable: reference corpus provenance is not verified" if not RAG_CORPUS_VERIFIED else ("available" if semantic_ready else "unavailable"),
+            "ragCorpusVerified": RAG_CORPUS_VERIFIED,
+        },
     }
 
 
@@ -47,12 +67,11 @@ def crop_prediction(request: CropRequest):
     return predict_crop(request.model_dump())
 
 
-@app.post("/predict/disease", response_model=DiseaseResponse)
-def disease_prediction(request: DiseaseRequest):
-    try:
-        return predict_disease(request.model_dump())
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
+@app.post("/predict/disease")
+async def disease_prediction(image: UploadFile = File(...)):
+    if image.content_type not in {"image/jpeg", "image/png"}:
+        raise HTTPException(status_code=415, detail="Only JPEG or PNG images are accepted.")
+    return predict_disease_image(image)
 
 
 @app.post("/predict/fertilizer", response_model=FertilizerResponse)
@@ -67,10 +86,15 @@ def market_prediction(request: MarketRequest):
 
 @app.post("/predict/rag", response_model=RAGResponse)
 def rag_prediction(request: RAGRequest):
-    results = retrieve_documents(
-        request.question,
-        request.top_k
-    )
+    if not RAG_CORPUS_VERIFIED:
+        raise HTTPException(
+            status_code=503,
+            detail="Knowledge retrieval is paused until its source documents and dates are verified.",
+        )
+    try:
+        results = retrieve_documents(request.question, request.top_k)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
     return {
         "question": request.question,

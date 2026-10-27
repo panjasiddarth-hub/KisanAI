@@ -21,7 +21,7 @@ export default function Notifications() {
         <div>
           <h2 className="text-xl font-extrabold text-[var(--color-text)]">Notifications</h2>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
-            {unreadCount > 0 ? `${unreadCount} unread update${unreadCount > 1 ? 's' : ''} from your farm agents` : 'You are all caught up!'}
+            {unreadCount > 0 ? `${unreadCount} unread update${unreadCount > 1 ? 's' : ''}` : 'Automated notifications are not connected yet.'}
           </p>
         </div>
         {unreadCount > 0 && (
@@ -35,7 +35,7 @@ export default function Notifications() {
       </div>
 
       {notifications.length === 0 ? (
-        <EmptyState icon={Bell} title="No notifications" description="Alerts from weather, market and crop agents will appear here." />
+        <EmptyState icon={Bell} title="No notifications" description="Disease, weather, market, and scheme alerts are not delivered by KisanAI yet." />
       ) : (
         <div className="card overflow-hidden">
           {notifications.map((n, i) => {
