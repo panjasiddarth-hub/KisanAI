@@ -182,9 +182,14 @@ production use.
 - [x] Farm assessment builds crop and nutrient-rating inputs from saved farm
   values plus farmer-reviewed/weather values, reports missing fields per agent,
   carries input-source labels into explanations, and shows validation checks.
-- [~] End-to-end local crop/fertilizer farm orchestration is implemented; verify
-  it against currently running services after these changes. Error outcomes
-  now distinguish missing inputs, failed services, and partial results.
+- [~] Live authenticated direct orchestration passed through backend and ML:
+  crop returned three ranked options, fertilizer returned nine ratings, and
+  validation passed. A read-only saved-farm run returned a crop result and
+  correctly requested missing fertilizer soil-test fields. None of the eight
+  farms available to the development account had a complete nutrient profile,
+  so a complete saved-farm run with full soil data remains to be verified.
+  Error outcomes distinguish missing inputs, failed services, and partial
+  results; the smoke run did not modify saved records.
 - [x] Verify signed-in API requests pass through backend, orchestrator, ML
   service, and validation for the three available prediction models.
 - [~] The authenticated Crop Suggester renders ML results, explanations, and
