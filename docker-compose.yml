@@ -1,0 +1,64 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - kisanai-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-kisanai-production-secret-change-me-1234567890}
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo:27017/kisanai}
+      - KISANAI_IN_MEMORY=${KISANAI_IN_MEMORY:-0}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - ML_SERVICE_URL=http://ml-service:8000
+    volumes:
+      - backend-uploads:/app/uploads
+    depends_on:
+      - ml-service
+      - mongo
+    restart: unless-stopped
+    networks:
+      - kisanai-network
+
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    restart: unless-stopped
+    networks:
+      - kisanai-network
+
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - kisanai-network
+
+volumes:
+  backend-uploads:
+  mongo-data:
+
+networks:
+  kisanai-network:
+    driver: bridge

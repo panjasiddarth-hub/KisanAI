@@ -56,14 +56,15 @@ export default function Sidebar({ open, onClose }) {
       {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 md:hidden transition-opacity"
           onClick={onClose}
+          aria-hidden="true"
         />
       )}
 
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         {/* Logo */}
-        <div className="flex items-center justify-between px-4 pt-5 pb-4">
+        <div className="flex items-center justify-between px-4 pt-5 pb-4 border-b border-[var(--color-border)] md:border-b-0">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center shadow-lg shadow-green-200 dark:shadow-green-950 shrink-0">
               <Sprout className="w-5 h-5 text-white" />
@@ -73,8 +74,12 @@ export default function Sidebar({ open, onClose }) {
               <p className="text-[0.68rem] text-[var(--color-text-muted)] mt-0.5">AI for Smarter Farming</p>
             </div>
           </div>
-          <button onClick={onClose} className="md:hidden p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
-            <X className="w-4 h-4 text-[var(--color-text-muted)]" />
+          <button 
+            onClick={onClose} 
+            className="md:hidden p-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5 text-[var(--color-text)]" />
           </button>
         </div>
 

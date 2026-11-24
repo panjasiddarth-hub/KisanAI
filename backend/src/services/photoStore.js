@@ -15,7 +15,7 @@ import multer from 'multer';
 
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const BACKEND_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-export const PHOTO_DIR = process.env.PHOTO_DIR || path.join(BACKEND_DIR, 'uploads-private');
+export const PHOTO_DIR = process.env.PHOTO_DIR || (process.env.VERCEL ? path.join('/tmp', 'uploads-private') : path.join(BACKEND_DIR, 'uploads-private'));
 const ID_RE = /^[a-f0-9]{32}\.(jpg|png|webp)$/;
 const USER_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const MIME = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };

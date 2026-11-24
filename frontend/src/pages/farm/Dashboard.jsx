@@ -78,12 +78,12 @@ const PRIORITY_STYLE = {
 
 function MiniStat({ icon: Icon, tint, label, children }) {
   return (
-    <div className="card p-4 flex flex-col gap-2.5">
+    <div className="card p-3 sm:p-4 flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${tint}`}>
-          <Icon className="w-4 h-4" />
+        <span className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center ${tint}`}>
+          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </span>
-        <span className="text-[0.72rem] font-medium text-[var(--color-text-muted)]">{label}</span>
+        <span className="text-[0.68rem] sm:text-[0.72rem] font-medium text-[var(--color-text-muted)] truncate">{label}</span>
       </div>
       {children}
     </div>

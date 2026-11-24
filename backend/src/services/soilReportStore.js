@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 
 const BACKEND_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-export const SOIL_REPORT_DIR = process.env.SOIL_REPORT_DIR || path.join(BACKEND_DIR, 'uploads-private', 'soil-reports');
+export const SOIL_REPORT_DIR = process.env.SOIL_REPORT_DIR || (process.env.VERCEL ? path.join('/tmp', 'uploads-private', 'soil-reports') : path.join(BACKEND_DIR, 'uploads-private', 'soil-reports'));
 export const MAX_SOIL_REPORT_BYTES = 8 * 1024 * 1024;
 
 const REPORT_ID = /^[a-f0-9]{32}\.(pdf|jpg|png|webp)$/;

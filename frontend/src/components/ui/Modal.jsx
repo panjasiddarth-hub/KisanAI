@@ -25,16 +25,19 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 safe-area-pb">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       />
-      {/* Modal box */}
-      <div className={`relative w-full ${sizeClasses[size]} card fade-in overflow-hidden`}>
+      {/* Modal box / Bottom-sheet on mobile */}
+      <div className={`relative w-full ${sizeClasses[size]} card fade-in overflow-hidden rounded-t-3xl sm:rounded-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col shadow-2xl`}>
+        {/* Mobile drag handle indicator */}
+        <div className="w-12 h-1.5 bg-gray-300 dark:bg-slate-600 rounded-full mx-auto mt-2.5 sm:hidden" />
+        
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-4 border-b border-[var(--color-border)]">
           <h3 className="font-bold text-base text-[var(--color-text)]">{title}</h3>
           <button
             onClick={onClose}
@@ -44,7 +47,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
           </button>
         </div>
         {/* Body */}
-        <div className="p-6 max-h-[80vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
           {children}
         </div>
       </div>

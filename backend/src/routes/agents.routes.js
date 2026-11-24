@@ -28,9 +28,14 @@ const ML_SERVICE_URL =
 // IMAGE UPLOAD CONFIGURATION
 // ============================================================
 
+const uploadDestination = process.env.VERCEL ? path.join('/tmp', 'uploads') : 'uploads';
+
 const upload = multer({
   storage: multer.diskStorage({
-    destination: 'uploads',
+    destination: (_req, _file, cb) => {
+      fs.mkdirSync(uploadDestination, { recursive: true });
+      cb(null, uploadDestination);
+    },
     filename: (_req, file, cb) =>
       cb(
         null,

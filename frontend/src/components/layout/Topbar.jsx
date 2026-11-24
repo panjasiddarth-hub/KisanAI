@@ -54,14 +54,14 @@ export default function Topbar({ onMenuClick, title }) {
       {/* Hamburger */}
       <button
         onClick={onMenuClick}
-        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 md:hidden"
+        className="p-2 -ml-1 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700/60 md:hidden shrink-0 transition-colors"
         aria-label="Open menu"
       >
-        <Menu className="w-5 h-5 text-[var(--color-text-muted)]" />
+        <Menu className="w-5 h-5 text-[var(--color-text)]" />
       </button>
 
       {/* Page title (mobile only) */}
-      <h1 className="font-bold text-base text-[var(--color-text)] md:hidden">{title}</h1>
+      <h1 className="font-bold text-sm sm:text-base text-[var(--color-text)] md:hidden truncate max-w-[140px] xs:max-w-[200px]">{title}</h1>
 
       {/* Search */}
       <div className="relative hidden md:flex items-center w-full max-w-md">
@@ -118,7 +118,7 @@ export default function Topbar({ onMenuClick, title }) {
         </button>
 
         {showNotif && (
-          <div className="absolute right-0 top-14 w-80 card z-50 shadow-2xl overflow-hidden">
+          <div className="fixed sm:absolute right-3 sm:right-0 top-16 sm:top-14 w-[calc(100vw-1.5rem)] sm:w-80 max-w-sm card z-50 shadow-2xl overflow-hidden border border-[var(--color-border)] animate-in fade-in slide-in-from-top-2 duration-150">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
               <span className="font-semibold text-sm text-[var(--color-text)]">Notifications</span>
               <button onClick={markAllRead} className="flex items-center gap-1 text-xs text-green-600 hover:underline">
